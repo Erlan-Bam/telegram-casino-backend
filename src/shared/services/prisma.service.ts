@@ -4,7 +4,7 @@ import {
   OnModuleDestroy,
   Logger,
 } from '@nestjs/common';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class PrismaService
@@ -13,7 +13,6 @@ export class PrismaService
 {
   private readonly logger = new Logger(PrismaService.name);
   private isConnected = false;
-  private promise: Promise<void> | null = null;
 
   async onModuleInit() {
     await this.connect();
@@ -24,16 +23,10 @@ export class PrismaService
       return;
     }
 
-    if (this.promise) {
-      return this.promise;
-    }
+    await this.$connect();
+    this.isConnected = true;
 
-    this.promise = this.$connect().then(() => {
-      this.isConnected = true;
-      this.logger.log('Prisma connected successfully');
-    });
-
-    return this.promise;
+    return this.isConnected;
   }
 
   async ensureConnected() {

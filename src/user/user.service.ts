@@ -22,6 +22,7 @@ export class UserService {
         select: {
           id: true,
           isBanned: true,
+          role: true,
         },
       });
 
@@ -32,6 +33,7 @@ export class UserService {
       const payload = {
         id: user.id,
         isBanned: user.isBanned,
+        role: user.role,
       };
 
       return this.jwtService.sign(payload);
@@ -103,6 +105,7 @@ export class UserService {
       const payload = {
         id: user.id,
         isBanned: user.isBanned,
+        role: user.role,
       };
 
       const accessToken = this.jwtService.sign(payload);

@@ -28,6 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         select: {
           id: true,
           isBanned: true,
+          role: true,
         },
       });
 
@@ -42,6 +43,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       return {
         id: user.id,
         isBanned: user.isBanned,
+        role: user.role,
       };
     } catch (error) {
       if (error instanceof UnauthorizedException) {
