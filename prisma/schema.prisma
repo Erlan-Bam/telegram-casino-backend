@@ -40,7 +40,7 @@ model User {
   role         Role            @default(USER)
 
   inventory    InventoryItem[] @relation("UserInventory")
-  aviators     Aviator[]
+  bets         Bet[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -98,24 +98,31 @@ model Case {
 
 model Aviator {
   id          Int     @id @default(autoincrement())
-  userId      String
+  startsAt    DateTime
   multiplier  Decimal
-  status      String
+  status      AviatorStatus @default(PENDING)
 
-  user User @relation(fields: [userId], references: [id])
   bets Bet[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+enum AviatorStatus {
+  PENDING
+  FINISHED
+  ACTIVE
+}
+
 model Bet {
   id         Int      @id @default(autoincrement())
   aviatorId  Int
+  userId     String
   amount     Int
   cashedAt   Decimal?
 
   aviator Aviator @relation(fields: [aviatorId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

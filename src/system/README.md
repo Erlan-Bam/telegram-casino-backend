@@ -14,19 +14,23 @@ This module manages system-wide configuration variables stored in the database.
 ## System Variables
 
 ### 1. TELEGRAM_BOT_TOKEN
+
 - **Type**: String
 - **Description**: Telegram bot token for authentication
 - **Hot-reload**: ✅ Bot restarts automatically with new token
 
 ### 2. WEBAPP_URL
+
 - **Type**: String (URL)
 - **Description**: URL of the Telegram Mini App WebApp
 - **Hot-reload**: ✅ Updated immediately for new bot commands
 
 ### 3. AVIATOR_CHANCES
+
 - **Type**: Array of ranges
 - **Description**: Configuration for aviator multiplier chances
 - **Structure**:
+
 ```json
 [
   { "from": 1, "to": 2, "chance": 70 },
@@ -41,9 +45,11 @@ This module manages system-wide configuration variables stored in the database.
 All endpoints require admin authentication (`@UseGuards(AdminGuard)`).
 
 ### GET /admin/system
+
 Get all system variables
 
 **Response**:
+
 ```json
 [
   {
@@ -67,15 +73,19 @@ Get all system variables
 ```
 
 ### GET /admin/system/:key
+
 Get specific system variable by key
 
 **Parameters**:
+
 - `key`: One of `TELEGRAM_BOT_TOKEN`, `WEBAPP_URL`, `AVIATOR_CHANCES`
 
 ### PUT /admin/system/bot-token
+
 Update Telegram bot token
 
 **Body**:
+
 ```json
 {
   "token": "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
@@ -85,9 +95,11 @@ Update Telegram bot token
 **Note**: Bot will automatically restart with the new token.
 
 ### PUT /admin/system/webapp-url
+
 Update WebApp URL
 
 **Body**:
+
 ```json
 {
   "url": "https://your-webapp.com"
@@ -95,9 +107,11 @@ Update WebApp URL
 ```
 
 ### PUT /admin/system/aviator-chances
+
 Update aviator multiplier chances configuration
 
 **Body**:
+
 ```json
 {
   "ranges": [
@@ -110,6 +124,7 @@ Update aviator multiplier chances configuration
 ```
 
 **Validation Rules**:
+
 1. `from` must be less than `to` for each range
 2. Ranges must not overlap
 3. Sum of all `chance` values must equal 100
@@ -137,6 +152,7 @@ curl -X PUT http://localhost:3000/admin/system/aviator-chances \
 ## Database Seeding
 
 Run `yarn prisma db seed` to populate default values:
+
 - **AVIATOR_CHANCES**: Default range configuration
 - **WEBAPP_URL**: From `WEBAPP_URL` env var or `http://localhost:5173`
 - **TELEGRAM_BOT_TOKEN**: Must be set manually via API for security
