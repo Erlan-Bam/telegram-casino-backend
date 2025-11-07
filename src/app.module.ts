@@ -4,6 +4,8 @@ import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { UserModule } from './user/user.module';
 import { AdminUserModule } from './admin/user/admin-user.module';
+import { AdminPrizeModule } from './admin/prize/admin-prize.module';
+import { AdminCaseModule } from './admin/case/admin-case.module';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { AdminUserModule } from './admin/user/admin-user.module';
     SharedModule,
     UserModule,
     AdminUserModule,
+    AdminPrizeModule,
+    AdminCaseModule,
   ],
 })
 export class AppModule {}

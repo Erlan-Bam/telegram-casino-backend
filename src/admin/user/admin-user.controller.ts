@@ -20,11 +20,12 @@ import {
 import { AdminGuard } from 'src/shared/guards/admin.guard';
 import { PaginationDto } from 'src/shared/dto/pagination.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('admin/user')
 @ApiTags('Admin - User')
 @ApiBearerAuth()
-@UseGuards(AdminGuard)
+@UseGuards(AuthGuard('jwt'), AdminGuard)
 export class AdminUserController {
   private readonly logger = new Logger(AdminUserController.name);
 
