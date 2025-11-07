@@ -50,12 +50,16 @@ model InventoryItem {
   id      Int    @id @default(autoincrement())
   userId  String
   prizeId Int
+  caseId  Int?
 
   user  User  @relation("UserInventory", fields: [userId], references: [id])
   prize Prize @relation("InventoryPrizes", fields: [prizeId], references: [id])
+  case  Case?  @relation("CaseInventory", fields: [caseId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId, caseId, createdAt])
 }
 
 model Prize {
@@ -91,6 +95,8 @@ model Case {
   price   Int
   preview String
   items   CaseItem[] @relation("CaseItems")
+  
+  inventoryItems InventoryItem[] @relation("CaseInventory")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
