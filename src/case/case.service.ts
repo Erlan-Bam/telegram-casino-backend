@@ -1,10 +1,7 @@
 import { Injectable, Logger, HttpException } from '@nestjs/common';
 import { PrismaService } from '../shared/services/prisma.service';
 import { GetCasesDto, CaseSortBy } from './dto/get-cases.dto';
-import {
-  CaseResponseDto,
-  FreeCaseCooldownDto,
-} from './dto/case-response.dto';
+import { CaseResponseDto, FreeCaseCooldownDto } from './dto/case-response.dto';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
