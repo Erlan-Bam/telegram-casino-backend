@@ -1,4 +1,8 @@
-import { Injectable, Logger, HttpException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  HttpException,
+} from '@nestjs/common';
 import { PrismaService } from '../../shared/services/prisma.service';
 import { CreatePrizeDto } from './dto/create-prize.dto';
 import { UpdatePrizeDto } from './dto/update-prize.dto';
@@ -73,7 +77,7 @@ export class AdminPrizeService {
       });
 
       if (!prize) {
-        throw new NotFoundException(`Prize with ID ${id} not found`);
+        throw new HttpException(`Prize with ID ${id} not found`, 404);
       }
 
       return prize;

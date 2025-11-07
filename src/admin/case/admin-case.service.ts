@@ -2,8 +2,6 @@ import {
   Injectable,
   Logger,
   HttpException,
-  NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../shared/services/prisma.service';
 import { CreateCaseDto } from './dto/create-case.dto';
@@ -27,8 +25,9 @@ export class AdminCaseService {
       if (prizes.length !== prizeIds.length) {
         const foundIds = prizes.map((p) => p.id);
         const missingIds = prizeIds.filter((id) => !foundIds.includes(id));
-        throw new BadRequestException(
+        throw new HttpException(
           `Prize(s) not found with ID(s): ${missingIds.join(', ')}`,
+          400,
         );
       }
 
@@ -38,8 +37,9 @@ export class AdminCaseService {
         0,
       );
       if (totalChance !== 100) {
-        throw new BadRequestException(
+        throw new HttpException(
           `Total chance must equal 100, got ${totalChance}`,
+          400,
         );
       }
 
@@ -126,7 +126,7 @@ export class AdminCaseService {
       });
 
       if (!caseData) {
-        throw new NotFoundException(`Case with ID ${id} not found`);
+        throw new HttpException(`Case with ID ${id} not found`, 404);
       }
 
       return caseData;
@@ -155,8 +155,9 @@ export class AdminCaseService {
         if (prizes.length !== prizeIds.length) {
           const foundIds = prizes.map((p) => p.id);
           const missingIds = prizeIds.filter((id) => !foundIds.includes(id));
-          throw new BadRequestException(
+          throw new HttpException(
             `Prize(s) not found with ID(s): ${missingIds.join(', ')}`,
+            400,
           );
         }
 
@@ -166,8 +167,9 @@ export class AdminCaseService {
           0,
         );
         if (totalChance !== 100) {
-          throw new BadRequestException(
+          throw new HttpException(
             `Total chance must equal 100, got ${totalChance}`,
+            400,
           );
         }
 

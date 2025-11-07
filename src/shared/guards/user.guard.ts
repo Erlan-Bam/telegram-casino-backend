@@ -2,8 +2,7 @@ import {
   Injectable,
   CanActivate,
   ExecutionContext,
-  ForbiddenException,
-  UnauthorizedException,
+  HttpException,
 } from '@nestjs/common';
 
 type UserPayload = {
@@ -19,11 +18,11 @@ export class UserGuard implements CanActivate {
     const user = req.user;
 
     if (!user) {
-      throw new UnauthorizedException('User not authenticated');
+      throw new HttpException('User not authenticated', 401);
     }
 
     if (user.isBanned) {
-      throw new ForbiddenException('Access denied: User is banned');
+      throw new HttpException('Access denied: User is banned', 403);
     }
 
     return true;

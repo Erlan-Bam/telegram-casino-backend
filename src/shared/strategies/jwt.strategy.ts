@@ -1,7 +1,6 @@
 import {
   HttpException,
   Injectable,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -33,11 +32,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       });
 
       if (!user) {
-        throw new UnauthorizedException('User not found');
+        throw new HttpException('User not found', 401);
       }
 
       if (user.isBanned) {
-        throw new UnauthorizedException('User is banned');
+        throw new HttpException('User is banned', 401);
       }
 
       return {
@@ -46,10 +45,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         role: user.role,
       };
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
+      if (error instanceof HttpException) {
         throw error;
       }
-      throw new UnauthorizedException('Invalid token');
+      throw new HttpException('Invalid token', 401);
     }
   }
 }

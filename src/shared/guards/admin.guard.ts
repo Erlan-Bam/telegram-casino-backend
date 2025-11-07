@@ -3,8 +3,7 @@ import {
   Injectable,
   CanActivate,
   ExecutionContext,
-  ForbiddenException,
-  UnauthorizedException,
+  HttpException,
 } from '@nestjs/common';
 
 type JwtUser = {
@@ -19,10 +18,10 @@ export class AdminGuard implements CanActivate {
     const user = req.user;
 
     if (!user) {
-      throw new UnauthorizedException('User not authenticated');
+      throw new HttpException('User not authenticated', 401);
     }
     if (user.role !== 'ADMIN') {
-      throw new ForbiddenException('Access denied: Admins only');
+      throw new HttpException('Access denied: Admins only', 403);
     }
     return true;
   }
