@@ -23,7 +23,7 @@ import { AuthGuard } from '@nestjs/passport';
 @ApiTags('System')
 @Controller('admin/system')
 @UseGuards(AuthGuard('jwt'), AdminGuard)
-@ApiBearerAuth(JWT)
+@ApiBearerAuth('JWT')
 export class SystemController {
   private readonly logger = new Logger(SystemController.name);
 

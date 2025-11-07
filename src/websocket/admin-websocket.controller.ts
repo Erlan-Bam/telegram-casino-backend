@@ -11,7 +11,7 @@ import { WebsocketGateway } from './websocket.gateway';
 @ApiTags('Admin - WebSocket')
 @Controller('admin/websocket')
 @UseGuards(AdminGuard)
-@ApiBearerAuth(JWT)
+@ApiBearerAuth('JWT')
 export class AdminWebsocketController {
   constructor(private readonly websocketGateway: WebsocketGateway) {}
 
