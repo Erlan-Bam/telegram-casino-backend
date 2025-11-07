@@ -34,6 +34,8 @@ export class CaseService {
    * Load all cases into cache
    */
   private async loadCasesIntoCache() {
+    await this.prisma.ensureConnected();
+
     const cases = await this.prisma.case.findMany({
       select: {
         id: true,

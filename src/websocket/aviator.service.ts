@@ -24,6 +24,8 @@ export class AviatorService implements OnModuleInit {
    */
   private async loadAviatorChances() {
     try {
+      await this.prisma.ensureConnected();
+
       const systemVar = await this.prisma.system.findUnique({
         where: { key: SystemKey.AVIATOR_CHANCES },
       });
