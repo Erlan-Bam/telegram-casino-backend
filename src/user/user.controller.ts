@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Logger, Post } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Post, Inject } from '@nestjs/common';
 import { UserService } from './user.service';
 import {
   ApiBody,
@@ -9,12 +9,17 @@ import {
 } from '@nestjs/swagger';
 import { TelegramAuthDto } from './dto/telegram-auth.dto';
 import { User } from 'src/shared/decorator/user.decorator';
+import { WebsocketGateway } from 'src/websocket/websocket.gateway';
 
 @Controller('user')
 @ApiTags('User')
 export class UserController {
   private readonly logger = new Logger(UserController.name);
-  constructor(private userService: UserService) {}
+  constructor(
+    private userService: UserService,
+    @Inject(WebsocketGateway)
+    private readonly websocketGateway: WebsocketGateway,
+  ) {}
 
   @Post('telegram')
   @ApiOperation({ summary: 'Authenticate with Telegram Web App' })
@@ -71,5 +76,18 @@ export class UserController {
     return this.userService.generateToken(
       'd581bb7e-56b1-4050-bcf2-b6afce518bad',
     );
+  }
+
+  @Get('active-users')
+  @ApiOperation({ summary: 'Get active users count (public)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns count of active users',
+  })
+  getActiveUsers() {
+    return {
+      count: this.websocketGateway.getActiveUsersCount(),
+      timestamp: new Date().toISOString(),
+    };
   }
 }

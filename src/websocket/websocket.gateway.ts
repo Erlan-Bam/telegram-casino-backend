@@ -1,0 +1,207 @@
+import {
+  WebSocketGateway,
+  WebSocketServer,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  SubscribeMessage,
+  MessageBody,
+  ConnectedSocket,
+} from '@nestjs/websockets';
+import { Server, Socket } from 'socket.io';
+import { Logger, UseGuards } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from '../shared/services/prisma.service';
+import { WsJwtGuard } from './guards/ws-jwt.guard';
+
+@WebSocketGateway({
+  cors: {
+    origin: [
+      'https://tma-frontend-production-1702.up.railway.app',
+      'https://miniapp.arcticpay.app',
+      'https://admin-panel.arcticpay.app',
+      'http://localhost:3000',
+    ],
+    credentials: true,
+  },
+  namespace: '/ws',
+})
+export class WebsocketGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
+  @WebSocketServer()
+  server: Server;
+
+  private readonly logger = new Logger(WebsocketGateway.name);
+  private activeUsers: Map<string, string> = new Map(); // userId -> socket ID (only one connection per user)
+
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  async handleConnection(client: Socket) {
+    try {
+      // Extract token from handshake auth or query
+      const token =
+        client.handshake.auth?.token || client.handshake.query?.token;
+
+      if (!token) {
+        this.logger.warn(`Client ${client.id} connected without token`);
+        client.disconnect();
+        return;
+      }
+
+      // Verify JWT token
+      const payload = this.jwtService.verify(token as string);
+
+      // Validate user exists and is not banned
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.id },
+        select: {
+          id: true,
+          isBanned: true,
+          role: true,
+          username: true,
+        },
+      });
+
+      if (!user) {
+        this.logger.warn(`User not found for token: ${client.id}`);
+        client.disconnect();
+        return;
+      }
+
+      if (user.isBanned) {
+        this.logger.warn(`Banned user tried to connect: ${user.id}`);
+        client.disconnect();
+        return;
+      }
+
+      // Check if user already has an active connection
+      const existingSocketId = this.activeUsers.get(user.id);
+      if (existingSocketId) {
+        const existingSocket =
+          this.server.sockets.sockets.get(existingSocketId);
+        if (existingSocket) {
+          this.logger.log(
+            `User ${user.username} (${user.id}) already connected. Disconnecting old socket ${existingSocketId}`,
+          );
+          existingSocket.emit('disconnected', {
+            reason: 'New connection from another device',
+          });
+          existingSocket.disconnect(true);
+        }
+      }
+
+      // Store user ID in socket data
+      client.data.userId = user.id;
+      client.data.username = user.username;
+      client.data.role = user.role;
+
+      // Add to active users (replace any existing connection)
+      this.activeUsers.set(user.id, client.id);
+
+      this.logger.log(
+        `User ${user.username} (${user.id}) connected with socket ${client.id}`,
+      );
+
+      // Emit active users count to all clients
+      this.broadcastActiveUsersCount();
+
+      // Send welcome message to connected client
+      client.emit('connected', {
+        message: 'Connected successfully',
+        activeUsers: this.getActiveUsersCount(),
+      });
+    } catch (error) {
+      this.logger.error(`Connection error: ${error.message}`, error.stack);
+      client.disconnect();
+    }
+  }
+
+  async handleDisconnect(client: Socket) {
+    const userId = client.data.userId;
+    const username = client.data.username;
+
+    if (userId) {
+      // Only remove if this is the current active socket for the user
+      const currentSocketId = this.activeUsers.get(userId);
+      if (currentSocketId === client.id) {
+        this.activeUsers.delete(userId);
+        this.logger.log(
+          `User ${username} (${userId}) disconnected socket ${client.id}`,
+        );
+        // Broadcast updated active users count
+        this.broadcastActiveUsersCount();
+      } else {
+        this.logger.log(
+          `Old socket ${client.id} for user ${username} (${userId}) disconnected (already replaced)`,
+        );
+      }
+    } else {
+      this.logger.log(`Client ${client.id} disconnected`);
+    }
+  }
+
+  @UseGuards(WsJwtGuard)
+  @SubscribeMessage('ping')
+  handlePing(@ConnectedSocket() client: Socket): { event: string; data: any } {
+    return {
+      event: 'pong',
+      data: {
+        timestamp: new Date().toISOString(),
+        activeUsers: this.getActiveUsersCount(),
+      },
+    };
+  }
+
+  @UseGuards(WsJwtGuard)
+  @SubscribeMessage('getActiveUsers')
+  handleGetActiveUsers(@ConnectedSocket() client: Socket): {
+    event: string;
+    data: any;
+  } {
+    return {
+      event: 'activeUsersCount',
+      data: {
+        count: this.getActiveUsersCount(),
+        timestamp: new Date().toISOString(),
+      },
+    };
+  }
+
+  // Helper method to get active users count
+  getActiveUsersCount(): number {
+    return this.activeUsers.size;
+  }
+
+  // Broadcast active users count to all connected clients
+  private broadcastActiveUsersCount() {
+    const count = this.getActiveUsersCount();
+    this.server.emit('activeUsersCount', {
+      count,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  async getActiveUsersDetails(): Promise<
+    Array<{
+      userId: string;
+      username: string;
+      socketId: string;
+    }>
+  > {
+    const details = [];
+    this.activeUsers.forEach((socketId, userId) => {
+      const socket = this.server.sockets.sockets.get(socketId);
+      if (socket) {
+        details.push({
+          userId,
+          username: socket.data.username,
+          socketId,
+        });
+      }
+    });
+    return details;
+  }
+}

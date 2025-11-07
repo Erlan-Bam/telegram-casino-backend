@@ -95,7 +95,7 @@ export class CaseService {
           throw new HttpException('User is banned', 403);
         }
 
-        if (user.balance < totalCost) {
+        if (user.balance.lt(totalCost)) {
           throw new HttpException('Insufficient balance', 400);
         }
 
@@ -120,29 +120,29 @@ export class CaseService {
 
         // 5. Open cases multiple times based on multiplier
         const wonPrizes = [];
-        const inventoryItems = [];
+        const inventoryData = [];
 
         for (let i = 0; i < multiplier; i++) {
           // Select prize using weighted random
           const selectedItem = this.selectPrizeByChance(caseData.items);
           const prize = selectedItem.prize;
 
-          // Add prize to inventory
-          const inventoryItem = await tx.inventoryItem.create({
-            data: {
-              userId: userId,
-              prizeId: prize.id,
-            },
-          });
-
           wonPrizes.push(prize);
-          inventoryItems.push(inventoryItem);
+          inventoryData.push({
+            userId: userId,
+            prizeId: prize.id,
+          });
         }
+
+        // Add all prizes to inventory in one request
+        const inventoryResult = await tx.inventoryItem.createMany({
+          data: inventoryData,
+        });
 
         return {
           prizes: wonPrizes,
-          inventoryItems,
-          remainingBalance: user.balance - totalCost,
+          inventoryCount: inventoryResult.count,
+          remainingBalance: user.balance.toNumber() - totalCost,
         };
       });
 
@@ -154,7 +154,6 @@ export class CaseService {
           prizeAmount: prize.amount,
           prizeUrl: prize.url,
         })),
-        inventoryItemIds: result.inventoryItems.map((item) => item.id),
         remainingBalance: result.remainingBalance,
         totalPrizesWon: result.prizes.length,
       };

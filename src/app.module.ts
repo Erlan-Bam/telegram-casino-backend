@@ -7,6 +7,8 @@ import { AdminUserModule } from './admin/user/admin-user.module';
 import { AdminPrizeModule } from './admin/prize/admin-prize.module';
 import { AdminCaseModule } from './admin/case/admin-case.module';
 import { CaseModule } from './case/case.module';
+import { WebsocketModule } from './websocket/websocket.module';
+import { SystemModule } from './system/system.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { CaseModule } from './case/case.module';
     AdminPrizeModule,
     AdminCaseModule,
     CaseModule,
+    WebsocketModule,
+    SystemModule,
   ],
 })
 export class AppModule {}

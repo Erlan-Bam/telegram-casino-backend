@@ -26,6 +26,8 @@ enum LanguageCode {
 
 enum SystemKey {
   TELEGRAM_BOT_TOKEN
+  WEBAPP_URL
+  AVIATOR_CHANCES
 }
 
 model User {
@@ -33,11 +35,12 @@ model User {
   telegramId   String          @unique
   username     String
   languageCode LanguageCode
-  balance      Int             @default(0)
+  balance      Decimal         @default(0)
   isBanned     Boolean         @default(false)
   role         Role            @default(USER)
 
   inventory    InventoryItem[] @relation("UserInventory")
+  aviators     Aviator[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -88,6 +91,31 @@ model Case {
   price   Int
   preview String
   items   CaseItem[] @relation("CaseItems")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Aviator {
+  id          Int     @id @default(autoincrement())
+  userId      String
+  multiplier  Decimal
+  status      String
+
+  user User @relation(fields: [userId], references: [id])
+  bets Bet[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Bet {
+  id         Int      @id @default(autoincrement())
+  aviatorId  Int
+  amount     Int
+  cashedAt   Decimal?
+
+  aviator Aviator @relation(fields: [aviatorId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
