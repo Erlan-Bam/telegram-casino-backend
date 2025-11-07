@@ -212,6 +212,106 @@ export class WebsocketGateway
     }
   }
 
+  @UseGuards(WsJwtGuard)
+  @SubscribeMessage('aviator:placeBet')
+  async handlePlaceBet(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { aviatorId: number; amount: number },
+  ) {
+    try {
+      const userId = client.data.userId;
+
+      if (!data.aviatorId || !data.amount) {
+        return {
+          event: 'error',
+          data: {
+            message: 'aviatorId and amount are required',
+          },
+        };
+      }
+
+      const bet = await this.aviatorService.placeBet(
+        userId,
+        data.aviatorId,
+        data.amount,
+      );
+
+      // Broadcast new bet to all clients
+      this.server.emit('aviator:newBet', {
+        betId: bet.id,
+        aviatorId: bet.aviatorId,
+        userId: bet.userId,
+        username: bet.user.username,
+        amount: bet.amount,
+        timestamp: bet.createdAt,
+      });
+
+      return {
+        event: 'aviator:betPlaced',
+        data: bet,
+      };
+    } catch (error) {
+      this.logger.error('Error in aviator:placeBet', error);
+      return {
+        event: 'error',
+        data: {
+          message: error.message || 'Failed to place bet',
+        },
+      };
+    }
+  }
+
+  @UseGuards(WsJwtGuard)
+  @SubscribeMessage('aviator:cashOut')
+  async handleCashOut(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { betId: number; currentMultiplier: number },
+  ) {
+    try {
+      const userId = client.data.userId;
+
+      if (!data.betId || !data.currentMultiplier) {
+        return {
+          event: 'error',
+          data: {
+            message: 'betId and currentMultiplier are required',
+          },
+        };
+      }
+
+      const result = await this.aviatorService.cashOut(
+        userId,
+        data.betId,
+        data.currentMultiplier,
+      );
+
+      // Broadcast cash out to all clients
+      this.server.emit('aviator:cashOut', {
+        betId: result.bet.id,
+        aviatorId: result.bet.aviatorId,
+        userId: result.bet.userId,
+        username: result.bet.user.username,
+        amount: result.bet.amount,
+        multiplier: result.multiplier,
+        winAmount: result.winAmount,
+        timestamp: result.bet.updatedAt,
+      });
+
+      return {
+        event: 'aviator:cashedOut',
+        data: result,
+      };
+    } catch (error) {
+      this.logger.error('Error in aviator:cashOut', error);
+      return {
+        event: 'error',
+        data: {
+          message: error.message || 'Failed to cash out',
+        },
+      };
+    }
+  }
+
   // Helper method to get active users count
   getActiveUsersCount(): number {
     return this.activeUsers.size;

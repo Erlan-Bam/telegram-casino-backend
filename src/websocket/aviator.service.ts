@@ -88,6 +88,23 @@ export class AviatorService implements OnModuleInit {
         orderBy: {
           createdAt: 'desc',
         },
+        include: {
+          bets: {
+            select: {
+              id: true,
+              amount: true,
+              cashedAt: true,
+              createdAt: true,
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  telegramId: true,
+                },
+              },
+            },
+          },
+        },
       });
 
       if (existingGame) {
@@ -103,6 +120,23 @@ export class AviatorService implements OnModuleInit {
           startsAt,
           multiplier,
           status: AviatorStatus.ACTIVE,
+        },
+        include: {
+          bets: {
+            select: {
+              id: true,
+              amount: true,
+              cashedAt: true,
+              createdAt: true,
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  telegramId: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -128,6 +162,23 @@ export class AviatorService implements OnModuleInit {
         },
         orderBy: {
           createdAt: 'desc',
+        },
+        include: {
+          bets: {
+            select: {
+              id: true,
+              amount: true,
+              cashedAt: true,
+              createdAt: true,
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  telegramId: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -161,6 +212,245 @@ export class AviatorService implements OnModuleInit {
     } catch (error) {
       this.logger.error(`Failed to update aviator game #${id} status`, error);
       throw new HttpException('Failed to update aviator game status', 500);
+    }
+  }
+
+  /**
+   * Place a bet on the current aviator game
+   * Validates bet amount, checks user balance, and creates bet in atomic transaction
+   */
+  async placeBet(userId: string, aviatorId: number, amount: number) {
+    try {
+      // Validate bet amount
+      if (amount < 25) {
+        throw new HttpException('Minimum bet amount is 25', 400);
+      }
+      if (amount > 10000) {
+        throw new HttpException('Maximum bet amount is 10000', 400);
+      }
+
+      // Get the specific aviator game
+      const game = await this.prisma.aviator.findUnique({
+        where: {
+          id: aviatorId,
+        },
+      });
+
+      if (!game) {
+        throw new HttpException('Aviator game not found', 404);
+      }
+
+      // Check if game is still active
+      if (game.status !== AviatorStatus.ACTIVE) {
+        throw new HttpException('Game is no longer active', 400);
+      }
+
+      // Check if game has already started
+      if (new Date() >= game.startsAt) {
+        throw new HttpException(
+          'Game has already started, cannot place bet',
+          400,
+        );
+      }
+
+      // Use transaction for atomicity
+      const result = await this.prisma.$transaction(async (tx) => {
+        // Get user with current balance
+        const user = await tx.user.findUnique({
+          where: { id: userId },
+          select: { id: true, balance: true, isBanned: true },
+        });
+
+        if (!user) {
+          throw new HttpException('User not found', 404);
+        }
+
+        if (user.isBanned) {
+          throw new HttpException('User is banned', 403);
+        }
+
+        // Check if user already has a bet on this game
+        const existingBet = await tx.bet.findFirst({
+          where: {
+            aviatorId: game.id,
+            userId: userId,
+          },
+        });
+
+        if (existingBet) {
+          throw new HttpException('You already have a bet on this game', 400);
+        }
+
+        // Decrement user balance with atomic check
+        const updateResult = await tx.user.updateMany({
+          where: {
+            id: userId,
+            balance: {
+              gte: amount,
+            },
+          },
+          data: {
+            balance: {
+              decrement: amount,
+            },
+          },
+        });
+
+        // If no rows were updated, balance was insufficient
+        if (updateResult.count === 0) {
+          throw new HttpException('Insufficient balance', 400);
+        }
+
+        // Create bet
+        const bet = await tx.bet.create({
+          data: {
+            aviatorId: game.id,
+            userId: userId,
+            amount: amount,
+          },
+          include: {
+            aviator: true,
+            user: {
+              select: {
+                id: true,
+                username: true,
+                balance: true,
+              },
+            },
+          },
+        });
+
+        return bet;
+      });
+
+      this.logger.log(
+        `User ${userId} placed bet of ${amount} on aviator game #${game.id}`,
+      );
+
+      return result;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error('Failed to place bet on aviator game', error);
+      throw new HttpException('Failed to place bet on aviator game', 500);
+    }
+  }
+
+  /**
+   * Cash out a bet at the current multiplier
+   * Validates bet exists, hasn't been cashed out, and game is still active
+   */
+  async cashOut(userId: string, betId: number, currentMultiplier: number) {
+    try {
+      // Validate current multiplier
+      if (currentMultiplier < 1) {
+        throw new HttpException('Invalid multiplier', 400);
+      }
+
+      // Use transaction for atomicity
+      const result = await this.prisma.$transaction(async (tx) => {
+        // Get bet with game and user info
+        const bet = await tx.bet.findUnique({
+          where: { id: betId },
+          include: {
+            aviator: true,
+            user: {
+              select: {
+                id: true,
+                username: true,
+                balance: true,
+                isBanned: true,
+              },
+            },
+          },
+        });
+
+        if (!bet) {
+          throw new HttpException('Bet not found', 404);
+        }
+
+        // Check if bet belongs to the user
+        if (bet.userId !== userId) {
+          throw new HttpException('Unauthorized to cash out this bet', 403);
+        }
+
+        // Check if user is banned
+        if (bet.user.isBanned) {
+          throw new HttpException('User is banned', 403);
+        }
+
+        // Check if bet has already been cashed out
+        if (bet.cashedAt !== null) {
+          throw new HttpException('Bet has already been cashed out', 400);
+        }
+
+        // Check if game is still active
+        if (bet.aviator.status !== AviatorStatus.ACTIVE) {
+          throw new HttpException('Game is no longer active', 400);
+        }
+
+        // Check if game has started
+        if (new Date() < bet.aviator.startsAt) {
+          throw new HttpException('Game has not started yet', 400);
+        }
+
+        // Check if current multiplier exceeds game's final multiplier
+        if (currentMultiplier > bet.aviator.multiplier.toNumber()) {
+          throw new HttpException(
+            'Cannot cash out after plane has crashed',
+            400,
+          );
+        }
+
+        // Calculate winnings
+        const winAmount = Math.floor(bet.amount * currentMultiplier);
+
+        // Update bet with cashedAt multiplier
+        const updatedBet = await tx.bet.update({
+          where: { id: betId },
+          data: {
+            cashedAt: currentMultiplier,
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                balance: true,
+              },
+            },
+          },
+        });
+
+        // Add winnings to user balance
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            balance: {
+              increment: winAmount,
+            },
+          },
+        });
+
+        return {
+          bet: updatedBet,
+          winAmount,
+          multiplier: currentMultiplier,
+        };
+      });
+
+      this.logger.log(
+        `User ${userId} cashed out bet #${betId} at ${currentMultiplier}x for ${result.winAmount} coins`,
+      );
+
+      return result;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error('Failed to cash out bet', error);
+      throw new HttpException('Failed to cash out bet', 500);
     }
   }
 }
