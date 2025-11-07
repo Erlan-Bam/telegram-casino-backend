@@ -18,10 +18,11 @@ import { UpdateBotTokenDto } from './dto/update-bot-token.dto';
 import { UpdateAviatorChancesDto } from './dto/update-aviator-chances.dto';
 import { UpdateWebAppUrlDto } from './dto/update-webapp-url.dto';
 import { AdminGuard } from '../shared/guards/admin.guard';
+import { AuthGuard } from '@nestjs/passport';
 
 @ApiTags('System')
 @Controller('admin/system')
-@UseGuards(AdminGuard)
+@UseGuards(AuthGuard('jwt'), AdminGuard)
 @ApiBearerAuth()
 export class SystemController {
   private readonly logger = new Logger(SystemController.name);
