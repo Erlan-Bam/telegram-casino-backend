@@ -31,7 +31,7 @@ export class AviatorService implements OnModuleInit {
       });
 
       if (!systemVar) {
-        this.logger.warn('AVIATOR_CHANCES not found in system variables');
+        this.logger.warn('AVIATOR_CHANCES not found in system variables, using defaults');
         // Set default chances if not found
         this.aviatorChances = [
           { from: 1, to: 2, chance: 70 },
@@ -45,8 +45,14 @@ export class AviatorService implements OnModuleInit {
 
       this.logger.log('Aviator chances loaded successfully');
     } catch (error) {
-      this.logger.error('Failed to load aviator chances', error);
-      throw new HttpException('Failed to load aviator chances', 500);
+      this.logger.error('Failed to load aviator chances, using defaults', error);
+      // Don't throw during initialization - use defaults instead
+      this.aviatorChances = [
+        { from: 1, to: 2, chance: 70 },
+        { from: 2, to: 5, chance: 20 },
+        { from: 5, to: 10, chance: 8 },
+        { from: 10, to: 20, chance: 2 },
+      ];
     }
   }
 

@@ -23,15 +23,39 @@ export class PrismaService
       return;
     }
 
-    await this.$connect();
-    this.isConnected = true;
+    try {
+      await this.$connect();
+      this.isConnected = true;
+      this.logger.log('Prisma connected successfully');
+    } catch (error) {
+      this.logger.error('Failed to connect to database', error);
+      throw error;
+    }
 
     return this.isConnected;
   }
 
   async ensureConnected() {
     if (!this.isConnected) {
-      await this.connect();
+      let retries = 3;
+      let lastError: Error | null = null;
+
+      while (retries > 0) {
+        try {
+          await this.connect();
+          return;
+        } catch (error) {
+          lastError = error as Error;
+          retries--;
+          if (retries > 0) {
+            this.logger.warn(`Connection failed, retrying... (${retries} attempts left)`);
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+        }
+      }
+
+      this.logger.error('Failed to connect to database after multiple attempts');
+      throw lastError || new Error('Failed to connect to database');
     }
   }
 
