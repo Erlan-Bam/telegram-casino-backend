@@ -18,8 +18,8 @@ export class AdminLoginDto {
   password: string;
 
   @ApiProperty({
-    description: 'Admin login',
-    example: 'admin',
+    description: 'Admin telegram ID',
+    example: '123456789',
   })
   @IsString()
   telegramId: string;
