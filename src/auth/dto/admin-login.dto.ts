@@ -16,4 +16,11 @@ export class AdminLoginDto {
   @IsString()
   @MinLength(6)
   password: string;
+
+  @ApiProperty({
+    description: 'Admin login',
+    example: 'admin',
+  })
+  @IsString()
+  telegramId: string;
 }
