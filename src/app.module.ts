@@ -12,6 +12,8 @@ import { SystemModule } from './system/system.module';
 import { PaymentModule } from './payment/payment.module';
 import { AuthModule } from './auth/auth.module';
 import { UploadModule } from './upload/upload.module';
+import { join } from 'path';
+import { ServeStaticModule } from '@nestjs/serve-static';
 
 @Module({
   imports: [
@@ -19,6 +21,10 @@ import { UploadModule } from './upload/upload.module';
       isGlobal: true,
       cache: true,
       validationOptions: { allowUnknown: true, abortEarly: true },
+    }),
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
     }),
     ScheduleModule.forRoot(),
     SharedModule,
