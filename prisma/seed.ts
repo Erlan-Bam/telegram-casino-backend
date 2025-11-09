@@ -1,4 +1,5 @@
 import { PrismaClient, SystemKey } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -35,7 +36,33 @@ async function main() {
   console.log('✓ WEBAPP_URL seeded');
 
   // Note: TELEGRAM_BOT_TOKEN should be set manually via the API for security
-  console.log('\nSeeding complete!');
+  console.log('\nSeeding admin user...');
+
+  // Create test admin user with strong credentials
+  const adminLogin = 'superadmin';
+  const adminPassword = 'Admin@2024!SecurePass';
+  const hashedPassword = await bcrypt.hash(adminPassword, 10);
+
+  await prisma.admin.upsert({
+    where: { login: adminLogin },
+    update: {
+      password: hashedPassword,
+    },
+    create: {
+      login: adminLogin,
+      password: hashedPassword,
+    },
+  });
+
+  console.log('✓ Admin user created');
+  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('🔐 ADMIN CREDENTIALS');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`Login:    ${adminLogin}`);
+  console.log(`Password: ${adminPassword}`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+  console.log('Seeding complete!');
   console.log('Remember to set TELEGRAM_BOT_TOKEN via the admin API endpoint.');
 }
 

@@ -10,6 +10,7 @@ import { CaseModule } from './case/case.module';
 import { WebsocketModule } from './websocket/websocket.module';
 import { SystemModule } from './system/system.module';
 import { PaymentModule } from './payment/payment.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { PaymentModule } from './payment/payment.module';
     }),
     ScheduleModule.forRoot(),
     SharedModule,
+    AuthModule,
     UserModule,
     AdminUserModule,
     AdminPrizeModule,
