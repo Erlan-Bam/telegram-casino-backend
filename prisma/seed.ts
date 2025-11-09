@@ -4,37 +4,6 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  // Seed system variables
-  console.log('Seeding system variables...');
-
-  // Default AVIATOR_CHANCES configuration
-  const defaultAviatorChances = [
-    { from: 1, to: 2, chance: 70 },
-    { from: 2, to: 5, chance: 20 },
-    { from: 5, to: 10, chance: 8 },
-    { from: 10, to: 20, chance: 2 },
-  ];
-
-  await prisma.system.upsert({
-    where: { key: SystemKey.AVIATOR_CHANCES },
-    update: {},
-    create: {
-      key: SystemKey.AVIATOR_CHANCES,
-      value: JSON.stringify(defaultAviatorChances),
-    },
-  });
-  console.log('✓ AVIATOR_CHANCES seeded');
-
-  await prisma.system.upsert({
-    where: { key: SystemKey.WEBAPP_URL },
-    update: {},
-    create: {
-      key: SystemKey.WEBAPP_URL,
-      value: process.env.WEBAPP_URL || 'http://localhost:5173',
-    },
-  });
-  console.log('✓ WEBAPP_URL seeded');
-
   // Note: TELEGRAM_BOT_TOKEN should be set manually via the API for security
   console.log('\nSeeding admin user...');
 
@@ -60,6 +29,86 @@ async function main() {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`Login:    ${adminLogin}`);
   console.log(`Password: ${adminPassword}`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+  console.log('\nSeeding test users...');
+
+  // Create multiple test users
+  const testUsers = [
+    {
+      telegramId: '123456789',
+      username: 'testuser1',
+      languageCode: 'en',
+      balance: 1000,
+      role: 'USER',
+      isBanned: false,
+    },
+    {
+      telegramId: '987654321',
+      username: 'testuser2',
+      languageCode: 'ru',
+      balance: 500,
+      role: 'USER',
+      isBanned: false,
+    },
+    {
+      telegramId: '555555555',
+      username: 'richuser',
+      languageCode: 'en',
+      balance: 10000,
+      role: 'USER',
+      isBanned: false,
+    },
+    {
+      telegramId: '111111111',
+      username: 'pooruser',
+      languageCode: 'ru',
+      balance: 0,
+      role: 'USER',
+      isBanned: false,
+    },
+    {
+      telegramId: '999999999',
+      username: 'banneduser',
+      languageCode: 'en',
+      balance: 100,
+      role: 'USER',
+      isBanned: true,
+    },
+    {
+      telegramId: '777777777',
+      username: 'adminuser',
+      languageCode: 'en',
+      balance: 5000,
+      role: 'ADMIN',
+      isBanned: false,
+    },
+  ];
+
+  for (const userData of testUsers) {
+    await prisma.user.upsert({
+      where: { telegramId: userData.telegramId },
+      update: {
+        balance: userData.balance,
+        isBanned: userData.isBanned,
+        role: userData.role as any,
+      },
+      create: userData as any,
+    });
+    console.log(
+      `✓ User created: ${userData.username} (${userData.telegramId})`,
+    );
+  }
+
+  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('👥 TEST USERS CREATED');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('testuser1    (123456789) - Balance: 1000  - EN - USER');
+  console.log('testuser2    (987654321) - Balance: 500   - RU - USER');
+  console.log('richuser     (555555555) - Balance: 10000 - EN - USER');
+  console.log('pooruser     (111111111) - Balance: 0     - RU - USER');
+  console.log('banneduser   (999999999) - Balance: 100   - EN - USER (BANNED)');
+  console.log('adminuser    (777777777) - Balance: 5000  - EN - ADMIN');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
   console.log('Seeding complete!');
