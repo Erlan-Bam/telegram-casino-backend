@@ -19,7 +19,7 @@ export class PrismaService
     await this.ensureConnected();
   }
 
-  async ensureConnected(maxRetries: number = 5, delayMs: number = 1000) {
+  async ensureConnected(maxRetries: number = 10, delayMs: number = 3000) {
     // If already connected, return immediately
     if (this.isConnected) {
       return;
