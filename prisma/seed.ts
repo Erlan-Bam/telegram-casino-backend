@@ -170,7 +170,9 @@ async function main() {
   console.log(`Min Bet:           ${defaultAviatorSettings.minBet} coins`);
   console.log(`Max Bet:           ${defaultAviatorSettings.maxBet} coins`);
   console.log(`Target RTP:        ${defaultAviatorSettings.targetRtp * 100}%`);
-  console.log(`Instant Crash:     ${defaultAviatorSettings.instantCrashP * 100}%`);
+  console.log(
+    `Instant Crash:     ${defaultAviatorSettings.instantCrashP * 100}%`,
+  );
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
   // Generate and seed server seed for provably fair system

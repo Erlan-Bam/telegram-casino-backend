@@ -37,7 +37,9 @@ Telegram Casino Backend - A NestJS backend for a Telegram Mini App casino game f
 ## Key Features
 
 ### Provably Fair Aviator Game
+
 The Aviator crash game implements a cryptographically secure provably fair algorithm:
+
 - HMAC-SHA256 based multiplier generation
 - Server seed + client seed + nonce verification
 - Configurable RTP (Return to Player) and crash probabilities
@@ -46,6 +48,7 @@ The Aviator crash game implements a cryptographically secure provably fair algor
 📖 [Read Provably Fair Documentation](docs/PROVABLY_FAIR.md)
 
 ### Architecture
+
 - **SharedModule**: Global services (Prisma, Bot, JWT, Cron, Referral)
 - **UserModule**: Public endpoints for authentication and profiles
 - **AdminModule**: Protected admin endpoints for game and user management
@@ -56,6 +59,7 @@ The Aviator crash game implements a cryptographically secure provably fair algor
 ## Quick Start
 
 ### Prerequisites
+
 - Node.js 18+ and Yarn
 - PostgreSQL database
 - Telegram Bot Token (from [@BotFather](https://t.me/BotFather))
@@ -148,12 +152,14 @@ docs/
 ## API Endpoints
 
 ### Public Endpoints
+
 - `POST /user/telegram` - Authenticate via Telegram WebApp
 - `GET /user/profile` - Get user profile
 - `GET /case` - List all cases
 - `POST /case/:id/open` - Open a case
 
 ### Admin Endpoints (require admin token)
+
 - `GET /admin/aviator/settings` - Get aviator settings
 - `PUT /admin/aviator/settings` - Update aviator settings
 - `GET /admin/aviator/server-seed` - Get server seed
@@ -186,16 +192,18 @@ $ yarn prisma migrate reset
 The Aviator game uses HMAC-SHA256 for provably fair outcomes:
 
 ```typescript
-multiplier = HMAC-SHA256(serverSeed, "clientSeed:nonce")
+multiplier = HMAC - SHA256(serverSeed, 'clientSeed:nonce');
 ```
 
 **Admin can configure**:
+
 - Target RTP (default 89%)
 - Instant crash probability (default 1%)
 - Min/max multipliers
 - Server seed
 
 **Players can verify**:
+
 - Each game's client seed and nonce are public
 - Server seed can be revealed after games
 - Independent verification using the same algorithm

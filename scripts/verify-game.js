@@ -1,12 +1,12 @@
 /**
  * Provably Fair Aviator - Verification Script
- * 
+ *
  * This script allows anyone to independently verify that an Aviator game
  * result was generated fairly using the provably fair algorithm.
- * 
+ *
  * Usage:
  *   node verify-game.js <serverSeed> <clientSeed> <nonce> [targetRtp] [instantCrashP]
- * 
+ *
  * Example:
  *   node verify-game.js a3f8b9c2d1e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0 b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6 1 0.89 0.01
  */
@@ -57,48 +57,69 @@ function isDivisible(hexHash, modulus) {
 /**
  * Calculate crash multiplier using provably fair algorithm
  */
-function calculateMultiplier(serverSeed, clientSeed, nonce, targetRtp, instantCrashP) {
+function calculateMultiplier(
+  serverSeed,
+  clientSeed,
+  nonce,
+  targetRtp,
+  instantCrashP,
+) {
   // 1. Generate HMAC hash
   const message = `${clientSeed}:${nonce}`;
   const hexHash = hmacSha256(serverSeed, message);
 
   console.log('\n📊 Calculation Steps:');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  );
   console.log(`1. Message: "${message}"`);
   console.log(`2. HMAC-SHA256 Hash: ${hexHash}`);
 
   // 2. Check for instant crash
   const instantCrashModulus = Math.max(2, Math.round(1.0 / instantCrashP));
   const isInstantCrash = isDivisible(hexHash, instantCrashModulus);
-  
-  console.log(`3. Instant Crash Check (divisible by ${instantCrashModulus}): ${isInstantCrash ? 'YES' : 'NO'}`);
+
+  console.log(
+    `3. Instant Crash Check (divisible by ${instantCrashModulus}): ${isInstantCrash ? 'YES' : 'NO'}`,
+  );
 
   if (isInstantCrash) {
     console.log(`   → Result: Instant crash at ${MIN_MULTIPLIER}x`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    console.log(
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n',
+    );
     return MIN_MULTIPLIER;
   }
 
   // 3. Generate uniform random value
   let U = uniformFromHash(hexHash);
   U = Math.max(U, 1e-12); // Protection from zero
-  
+
   console.log(`4. Uniform Random Value (U): ${U}`);
 
   // 4. Apply inverse distribution
   const K = targetRtp * (1.0 - instantCrashP);
   let multiplier = K / U;
-  
-  console.log(`5. Calibration Coefficient (K): ${targetRtp} × ${1 - instantCrashP} = ${K}`);
+
+  console.log(
+    `5. Calibration Coefficient (K): ${targetRtp} × ${1 - instantCrashP} = ${K}`,
+  );
   console.log(`6. Raw Multiplier: ${K} / ${U} = ${multiplier}`);
 
   // 5. Apply boundaries
-  const clampedMultiplier = Math.max(MIN_MULTIPLIER, Math.min(MAX_MULTIPLIER, multiplier));
+  const clampedMultiplier = Math.max(
+    MIN_MULTIPLIER,
+    Math.min(MAX_MULTIPLIER, multiplier),
+  );
   const finalMultiplier = Math.round(clampedMultiplier * 100) / 100;
 
   console.log(`7. After Clamping: ${clampedMultiplier}`);
-  console.log(`8. Final Multiplier (rounded to 2 decimals): ${finalMultiplier}x`);
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  console.log(
+    `8. Final Multiplier (rounded to 2 decimals): ${finalMultiplier}x`,
+  );
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n',
+  );
 
   return finalMultiplier;
 }
@@ -108,13 +129,17 @@ function calculateMultiplier(serverSeed, clientSeed, nonce, targetRtp, instantCr
  */
 function verifyGame(serverSeed, clientSeed, nonce, targetRtp, instantCrashP) {
   console.log('\n🔍 Provably Fair Aviator - Game Verification');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  );
   console.log(`Server Seed:       ${serverSeed}`);
   console.log(`Client Seed:       ${clientSeed}`);
   console.log(`Nonce:             ${nonce}`);
   console.log(`Target RTP:        ${targetRtp * 100}%`);
   console.log(`Instant Crash P:   ${instantCrashP * 100}%`);
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  );
 
   // Validate inputs
   if (serverSeed.length !== 64 || !/^[0-9a-f]+$/i.test(serverSeed)) {
@@ -127,7 +152,13 @@ function verifyGame(serverSeed, clientSeed, nonce, targetRtp, instantCrashP) {
     throw new Error('Nonce must be a positive integer');
   }
 
-  const result = calculateMultiplier(serverSeed, clientSeed, nonce, targetRtp, instantCrashP);
+  const result = calculateMultiplier(
+    serverSeed,
+    clientSeed,
+    nonce,
+    targetRtp,
+    instantCrashP,
+  );
 
   console.log('✅ Verification Complete!');
   console.log(`\n🎯 Final Result: ${result}x\n`);
@@ -141,10 +172,14 @@ if (require.main === module) {
 
   if (args.length < 3) {
     console.error('\n❌ Error: Missing required arguments\n');
-    console.log('Usage: node verify-game.js <serverSeed> <clientSeed> <nonce> [targetRtp] [instantCrashP]\n');
+    console.log(
+      'Usage: node verify-game.js <serverSeed> <clientSeed> <nonce> [targetRtp] [instantCrashP]\n',
+    );
     console.log('Example:');
     console.log('  node verify-game.js \\');
-    console.log('    a3f8b9c2d1e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0 \\');
+    console.log(
+      '    a3f8b9c2d1e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0 \\',
+    );
     console.log('    b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6 \\');
     console.log('    1 \\');
     console.log('    0.89 \\');
@@ -152,10 +187,15 @@ if (require.main === module) {
     process.exit(1);
   }
 
-  const [serverSeed, clientSeed, nonceStr, targetRtpStr, instantCrashPStr] = args;
+  const [serverSeed, clientSeed, nonceStr, targetRtpStr, instantCrashPStr] =
+    args;
   const nonce = parseInt(nonceStr, 10);
-  const targetRtp = targetRtpStr ? parseFloat(targetRtpStr) : DEFAULT_TARGET_RTP;
-  const instantCrashP = instantCrashPStr ? parseFloat(instantCrashPStr) : DEFAULT_INSTANT_CRASH_P;
+  const targetRtp = targetRtpStr
+    ? parseFloat(targetRtpStr)
+    : DEFAULT_TARGET_RTP;
+  const instantCrashP = instantCrashPStr
+    ? parseFloat(instantCrashPStr)
+    : DEFAULT_INSTANT_CRASH_P;
 
   try {
     verifyGame(serverSeed, clientSeed, nonce, targetRtp, instantCrashP);

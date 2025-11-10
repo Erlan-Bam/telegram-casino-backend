@@ -67,6 +67,7 @@ node scripts/verify-game.js <serverSeed> <clientSeed> <nonce> [targetRtp] [insta
 ```
 
 **Example**:
+
 ```bash
 node scripts/verify-game.js \
   a3f8b9c2d1e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0 \
@@ -77,6 +78,7 @@ node scripts/verify-game.js \
 ```
 
 **Output**:
+
 ```
 🔍 Provably Fair Aviator - Game Verification
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -109,25 +111,34 @@ Instant Crash P:   1%
 ```typescript
 import * as crypto from 'crypto';
 
-function verifyGame(serverSeed: string, clientSeed: string, nonce: number, targetRtp = 0.89, instantCrashP = 0.01) {
+function verifyGame(
+  serverSeed: string,
+  clientSeed: string,
+  nonce: number,
+  targetRtp = 0.89,
+  instantCrashP = 0.01,
+) {
   // 1. Generate hash
   const message = `${clientSeed}:${nonce}`;
-  const hash = crypto.createHmac('sha256', serverSeed).update(message).digest('hex');
-  
+  const hash = crypto
+    .createHmac('sha256', serverSeed)
+    .update(message)
+    .digest('hex');
+
   // 2. Check instant crash
   if (isDivisible(hash, 100)) {
-    return 1.00;
+    return 1.0;
   }
-  
+
   // 3. Generate uniform value
   const top52Hex = hash.substring(0, 13);
   const top52 = parseInt(top52Hex, 16);
   const U = top52 / Math.pow(2, 52);
-  
+
   // 4. Calculate multiplier
   const K = targetRtp * (1 - instantCrashP);
   let multiplier = K / Math.max(U, 1e-12);
-  
+
   // 5. Apply boundaries and round
   multiplier = Math.max(1.0, Math.min(100000, multiplier));
   return Math.round(multiplier * 100) / 100;
@@ -146,12 +157,14 @@ function isDivisible(hash: string, mod: number): boolean {
 ## Admin Endpoints
 
 ### Get Current Settings
+
 ```
 GET /admin/aviator/settings
 Authorization: Bearer <admin-token>
 ```
 
 Response:
+
 ```json
 {
   "settings": {
@@ -167,6 +180,7 @@ Response:
 ```
 
 ### Update Settings
+
 ```
 PUT /admin/aviator/settings
 Authorization: Bearer <admin-token>
@@ -183,12 +197,14 @@ Content-Type: application/json
 ```
 
 ### Get Server Seed
+
 ```
 GET /admin/aviator/server-seed
 Authorization: Bearer <admin-token>
 ```
 
 Response:
+
 ```json
 {
   "serverSeed": "a3f8b9c2d1e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0",
@@ -197,6 +213,7 @@ Response:
 ```
 
 ### Update Server Seed
+
 ```
 PUT /admin/aviator/server-seed
 Authorization: Bearer <admin-token>
@@ -212,6 +229,7 @@ Content-Type: application/json
 ## Database Schema
 
 ### Aviator Model
+
 ```prisma
 model Aviator {
   id          Int           @id @default(autoincrement())
@@ -220,15 +238,16 @@ model Aviator {
   status      AviatorStatus @default(ACTIVE)
   clientSeed  String?
   nonce       Int           @default(0)
-  
+
   bets Bet[]
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 ```
 
 ### System Variables
+
 - `AVIATOR_SERVER_SEED`: The server seed (64 hex chars)
 - `AVIATOR`: JSON settings object
 
@@ -250,6 +269,7 @@ yarn prisma generate
 ```
 
 This will:
+
 1. Add `clientSeed` and `nonce` fields to the Aviator table
 2. Add `AVIATOR_SERVER_SEED` to SystemKey enum
 3. Regenerate Prisma Client with new types

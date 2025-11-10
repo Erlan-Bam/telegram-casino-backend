@@ -66,10 +66,7 @@ export class AdminAviatorController {
       }
 
       if (dto.instantCrashP < 0 || dto.instantCrashP > 0.5) {
-        throw new HttpException(
-          'instantCrashP must be between 0 and 0.5',
-          400,
-        );
+        throw new HttpException('instantCrashP must be between 0 and 0.5', 400);
       }
 
       // Update in database
