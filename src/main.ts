@@ -11,7 +11,10 @@ async function bootstrap() {
     app.setGlobalPrefix('api');
   }
   app.enableCors({
-    origin: ['https://gifty-realm-production.up.railway.app'],
+    origin: [
+      'https://gifty-realm-production.up.railway.app',
+      'http://localhost:3000',
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: [
       'Content-Type',

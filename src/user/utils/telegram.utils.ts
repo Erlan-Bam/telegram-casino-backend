@@ -29,25 +29,17 @@ export function validateTelegramWebAppData(
   initData: string,
   botToken: string,
 ): ParsedInitData {
-  let decodedInitData = initData;
-  if (initData.includes('%3D') || initData.includes('%26')) {
-    decodedInitData = decodeURIComponent(initData);
-  }
-
+  // Parse the URL-encoded init data from Telegram
+  const urlParams = new URLSearchParams(initData);
   const params: Map<string, string> = new Map();
-  const pairs = decodedInitData.split('&');
-
   let hash = '';
 
-  for (const pair of pairs) {
-    const [key, ...valueParts] = pair.split('=');
-    const value = valueParts.join('=');
-
+  // Extract all parameters
+  for (const [key, value] of urlParams.entries()) {
     if (key === 'hash') {
       hash = value;
     } else if (key === 'signature') {
       // Telegram may send a signature field - exclude it from validation
-      // The signature is used for other purposes and should not be part of hash calculation
       continue;
     } else {
       params.set(key, value);
@@ -58,16 +50,19 @@ export function validateTelegramWebAppData(
     throw new HttpException('Hash is missing from initData', 400);
   }
 
+  // Create the secret key using bot token
   const secretKey = crypto
     .createHmac('sha256', 'WebAppData')
     .update(botToken)
     .digest();
 
+  // Create data check string: sorted keys with values, joined by newlines
   const sortedKeys = Array.from(params.keys()).sort();
   const dataCheckString = sortedKeys
     .map((key) => `${key}=${params.get(key)}`)
     .join('\n');
 
+  // Calculate the hash
   const calculatedHash = crypto
     .createHmac('sha256', secretKey)
     .update(dataCheckString)
@@ -84,6 +79,7 @@ export function validateTelegramWebAppData(
     throw new HttpException('Invalid hash - data integrity check failed', 400);
   }
 
+  // Parse the validated data
   const result: ParsedInitData = {
     user: {} as TelegramUser,
     auth_date: 0,
@@ -92,14 +88,15 @@ export function validateTelegramWebAppData(
 
   params.forEach((value, key) => {
     if (key === 'user') {
-      result.user = JSON.parse(decodeURIComponent(value));
+      result.user = JSON.parse(value);
     } else if (key === 'auth_date') {
       result.auth_date = parseInt(value, 10);
     } else {
-      result[key] = decodeURIComponent(value);
+      result[key] = value;
     }
   });
 
+  // Validate auth_date is not too old (24 hours)
   const authDate = result.auth_date * 1000;
   const currentTime = Date.now();
   const maxAge = 24 * 60 * 60 * 1000;
