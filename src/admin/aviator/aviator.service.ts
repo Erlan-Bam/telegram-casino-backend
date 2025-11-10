@@ -57,9 +57,7 @@ export class AviatorService implements OnModuleInit {
             value: this.serverSeed,
           },
         });
-        this.logger.warn(
-          'Server seed not found, generated new one',
-        );
+        this.logger.warn('Server seed not found, generated new one');
       } else {
         this.serverSeed = systemVar.value;
       }
