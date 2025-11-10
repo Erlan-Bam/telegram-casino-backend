@@ -55,7 +55,7 @@ Returns paginated list of all transactions.
 **Query Parameters:**
 
 - `page` (optional, default: 1): Page number
-- `limit` (optional, default: 20): Items per page
+- `limit` (optional, default: 20, max: 100): Items per page
 - `startDate` (optional): ISO 8601 date string for filtering
 - `endDate` (optional): ISO 8601 date string for filtering
 
