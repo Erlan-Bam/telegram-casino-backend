@@ -30,7 +30,7 @@ export class AuthService {
 
     const payload = {
       id: admin.id,
-      role: Role.ADMIN,
+      isAdmin: true,
     };
 
     const accessToken = this.jwtService.sign(payload);

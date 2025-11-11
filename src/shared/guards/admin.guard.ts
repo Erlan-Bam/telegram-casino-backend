@@ -8,7 +8,8 @@ import {
 
 type JwtUser = {
   id: string;
-  role: 'USER' | 'ADMIN';
+  isAdmin?: boolean;
+  login?: string;
 };
 
 @Injectable()
@@ -20,7 +21,7 @@ export class AdminGuard implements CanActivate {
     if (!user) {
       throw new HttpException('User not authenticated', 401);
     }
-    if (user.role !== 'ADMIN') {
+    if (user.isAdmin !== true) {
       throw new HttpException('Access denied: Admins only', 403);
     }
     return true;

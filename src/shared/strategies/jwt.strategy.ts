@@ -19,8 +19,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: any) {
     try {
-      // If role is ADMIN, validate against Admin table
-      if (payload.role === 'ADMIN') {
+      // Check if token is for admin (has isAdmin flag)
+      if (payload.isAdmin === true) {
         const admin = await this.prisma.admin.findUnique({
           where: { id: payload.id },
           select: {
@@ -35,7 +35,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
         return {
           id: admin.id,
-          role: 'ADMIN' as const,
+          isAdmin: true,
+          login: admin.login,
         };
       }
 
@@ -61,6 +62,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         id: user.id,
         isBanned: user.isBanned,
         role: user.role,
+        isAdmin: false,
       };
     } catch (error) {
       if (error instanceof HttpException) {
