@@ -42,7 +42,7 @@ export class UploadController {
       storage: memoryStorage(),
     }),
   )
-  async uploadImage(@UploadedFile() file: Express.Multer.File) {
+  async uploadImage(@UploadedFile() file: any) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
@@ -84,7 +84,7 @@ export class UploadController {
       storage: memoryStorage(),
     }),
   )
-  async uploadImages(@UploadedFiles() files: Express.Multer.File[]) {
+  async uploadImages(@UploadedFiles() files: any[]) {
     if (!files || files.length === 0) {
       throw new BadRequestException('No files uploaded');
     }
@@ -131,7 +131,7 @@ export class UploadController {
       }),
     }),
   )
-  async uploadVideo(@UploadedFile() file: Express.Multer.File) {
+  async uploadVideo(@UploadedFile() file: any) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
@@ -177,7 +177,7 @@ export class UploadController {
       }),
     }),
   )
-  async uploadVideos(@UploadedFiles() files: Express.Multer.File[]) {
+  async uploadVideos(@UploadedFiles() files: any[]) {
     if (!files || files.length === 0) {
       throw new BadRequestException('No files uploaded');
     }
