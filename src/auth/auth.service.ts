@@ -23,16 +23,13 @@ export class AuthService {
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, admin.password);
-    const user = await this.prisma.user.findUnique({
-      where: { telegramId: dto.telegramId },
-    });
 
     if (!isPasswordValid) {
       throw new HttpException('Invalid credentials', 401);
     }
 
     const payload = {
-      id: user.id,
+      id: admin.id,
       role: Role.ADMIN,
     };
 
