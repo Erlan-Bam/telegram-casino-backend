@@ -19,6 +19,27 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: any) {
     try {
+      // If role is ADMIN, validate against Admin table
+      if (payload.role === 'ADMIN') {
+        const admin = await this.prisma.admin.findUnique({
+          where: { id: payload.id },
+          select: {
+            id: true,
+            login: true,
+          },
+        });
+
+        if (!admin) {
+          throw new HttpException('Admin not found', 401);
+        }
+
+        return {
+          id: admin.id,
+          role: 'ADMIN' as const,
+        };
+      }
+
+      // Otherwise validate against User table
       const user = await this.prisma.user.findUnique({
         where: { id: payload.id },
         select: {
