@@ -19,8 +19,6 @@ import { AdminUpgradeService } from './admin-upgrade.service';
 import { AdminGuard } from '../../shared/guards/admin.guard';
 import { CreateUpgradeChanceDto } from './dto/create-upgrade-chance.dto';
 import { UpdateUpgradeChanceDto } from './dto/update-upgrade-chance.dto';
-import { DeleteUpgradeChanceDto } from './dto/delete-upgrade-chance.dto';
-import { EditMultiplierDto } from './dto/edit-multiplier.dto';
 import { UpgradeChanceResponseDto } from './dto/upgrade-chance-response.dto';
 
 @ApiTags('Admin - Upgrade')
