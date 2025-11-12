@@ -1,16 +1,34 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsPositive, Min, Max } from 'class-validator';
+import {
+  IsNumber,
+  IsPositive,
+  IsInt,
+  Min,
+  Max,
+  IsOptional,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateUpgradeChanceDto {
   @ApiProperty({
-    description: 'Multiplier to update',
+    description: 'ID of upgrade chance to update',
+    example: 1,
+  })
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  id: number;
+
+  @ApiProperty({
+    description: 'New multiplier value (optional)',
     example: 2,
+    required: false,
   })
   @Type(() => Number)
   @IsNumber()
   @IsPositive()
-  multiplier: number;
+  @IsOptional()
+  multiplier?: number;
 
   @ApiProperty({
     description: 'Success chance as decimal (0.0 - 1.0)',

@@ -57,7 +57,7 @@ export class AdminUpgradeController {
   }
 
   @Put('chance')
-  @ApiOperation({ summary: 'Update upgrade chance for a multiplier' })
+  @ApiOperation({ summary: 'Update upgrade chance by ID' })
   @ApiResponse({
     status: 200,
     description: 'Upgrade chance updated successfully',
@@ -65,7 +65,11 @@ export class AdminUpgradeController {
   })
   @ApiResponse({
     status: 404,
-    description: 'Multiplier not found',
+    description: 'Upgrade chance not found',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Multiplier already exists',
   })
   async updateUpgradeChance(
     @Body() dto: UpdateUpgradeChanceDto,

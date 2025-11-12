@@ -87,7 +87,7 @@ export class AdminUpgradeService {
   }
 
   /**
-   * Update upgrade chance for a specific multiplier
+   * Update upgrade chance by ID
    */
   async updateUpgradeChance(
     dto: UpdateUpgradeChanceDto,
@@ -95,26 +95,36 @@ export class AdminUpgradeService {
     try {
       await this.prisma.ensureConnected();
 
-      // Check if multiplier exists
+      // Check if record exists
       const existing = await this.prisma.upgradeChance.findUnique({
-        where: { multiplier: dto.multiplier },
+        where: { id: dto.id },
       });
 
       if (!existing) {
-        throw new HttpException('Multiplier not found', 404);
+        throw new HttpException('Upgrade chance not found', 404);
+      }
+
+      // If multiplier is being changed, check if new multiplier already exists
+      if (dto.multiplier && dto.multiplier !== Number(existing.multiplier)) {
+        const multiplierExists = await this.prisma.upgradeChance.findUnique({
+          where: { multiplier: dto.multiplier },
+        });
+
+        if (multiplierExists) {
+          throw new HttpException('Multiplier already exists', 400);
+        }
       }
 
       const upgradeChance = await this.prisma.upgradeChance.update({
-        where: {
-          multiplier: dto.multiplier,
-        },
+        where: { id: dto.id },
         data: {
+          multiplier: dto.multiplier ?? existing.multiplier,
           chance: dto.chance,
         },
       });
 
       this.logger.log(
-        `Updated upgrade chance: X${dto.multiplier} to ${dto.chance * 100}% chance`,
+        `Updated upgrade chance: ID ${dto.id} - X${upgradeChance.multiplier} with ${dto.chance * 100}% chance`,
       );
 
       return {
