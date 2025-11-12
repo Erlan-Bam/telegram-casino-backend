@@ -26,7 +26,7 @@ import { UpgradeChanceResponseDto } from './dto/upgrade-chance-response.dto';
 @ApiTags('Admin - Upgrade')
 @Controller('admin/upgrade')
 @UseGuards(AuthGuard('jwt'), AdminGuard)
-@ApiBearerAuth()
+@ApiBearerAuth('JWT')
 export class AdminUpgradeController {
   constructor(private readonly adminUpgradeService: AdminUpgradeService) {}
 
