@@ -4,6 +4,8 @@ import { Currency, Payment, PaymentStatus } from '@prisma/client';
 import { BotService } from 'src/shared/services/bot.service';
 import { CreateStarsPaymentDto } from './dto/create-stars-payment.dto';
 import { getMessage } from 'src/shared/consts/messages.consts';
+import { TonService } from './services/ton.service';
+import { InitiateTonPaymentDto } from './dto/initiate-ton-payment.dto';
 
 @Injectable()
 export class PaymentService {
@@ -12,6 +14,7 @@ export class PaymentService {
   constructor(
     private prisma: PrismaService,
     private bot: BotService,
+    private tonService: TonService,
   ) {}
 
   async createStarsInvoice(userId: string, data: CreateStarsPaymentDto) {
@@ -51,6 +54,29 @@ export class PaymentService {
       }
       if (error instanceof HttpException) throw error;
       throw new HttpException('Failed to create payment', 500);
+    }
+  }
+
+  async initiateTonPayment(userId: string, data: InitiateTonPaymentDto) {
+    try {
+      const stars = await this.tonService.convertToStars(data.amount);
+
+      const payment = await this.prisma.payment.create({
+        data: {
+          userId: userId,
+          amount: stars,
+          currency: Currency.TON,
+          status: PaymentStatus.PENDING,
+        },
+      });
+
+      return {
+        payment: payment,
+      };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error('Failed to initiate TON payment:', error);
+      throw new HttpException('Failed to initiate TON payment', 500);
     }
   }
 }
