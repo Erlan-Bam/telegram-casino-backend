@@ -16,6 +16,7 @@ import { SystemModule } from './system/system.module';
 import { PaymentModule } from './payment/payment.module';
 import { AuthModule } from './auth/auth.module';
 import { UploadModule } from './upload/upload.module';
+import { LeaderboardModule } from './leaderboard/leaderboard.module';
 import { join } from 'path';
 
 @Module({
@@ -41,6 +42,7 @@ import { join } from 'path';
     SystemModule,
     PaymentModule,
     UploadModule,
+    LeaderboardModule,
   ],
 })
 export class AppModule {}
