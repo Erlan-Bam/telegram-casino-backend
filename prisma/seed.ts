@@ -255,25 +255,37 @@ async function main() {
 
   console.log('\nSeeding prizes...');
 
-  // Create prizes for cases
+  // Create prizes for cases with Lottie animations from Fragment
   const prizes = [
-    { name: '100 Coins', amount: 100, url: 'https://via.placeholder.com/100' },
-    { name: '250 Coins', amount: 250, url: 'https://via.placeholder.com/100' },
-    { name: '500 Coins', amount: 500, url: 'https://via.placeholder.com/100' },
+    {
+      name: '100 Coins',
+      amount: 100,
+      url: 'https://nft.fragment.com/gift/CandyCane-505.lottie.json',
+    },
+    {
+      name: '250 Coins',
+      amount: 250,
+      url: 'https://nft.fragment.com/gift/BerryBox-505.lottie.json',
+    },
+    {
+      name: '500 Coins',
+      amount: 500,
+      url: 'https://nft.fragment.com/gift/IceCream-505.lottie.json',
+    },
     {
       name: '1000 Coins',
       amount: 1000,
-      url: 'https://via.placeholder.com/100',
+      url: 'https://nft.fragment.com/gift/HomemadeCake-505.lottie.json',
     },
     {
       name: '2500 Coins',
       amount: 2500,
-      url: 'https://via.placeholder.com/100',
+      url: 'https://nft.fragment.com/gift/PreciousPeach-505.lottie.json',
     },
     {
       name: '5000 Coins',
       amount: 5000,
-      url: 'https://via.placeholder.com/100',
+      url: 'https://nft.fragment.com/gift/SakuraFlower-505.lottie.json',
     },
   ];
 
@@ -297,25 +309,25 @@ async function main() {
 
   console.log('\nSeeding cases...');
 
-  // Create cases
+  // Create cases with Lottie previews from Fragment
   const cases = [
     {
       id: 1,
       name: 'Bronze Case',
       price: 100,
-      preview: 'https://via.placeholder.com/200',
+      preview: 'https://nft.fragment.com/gift/LootBag-505.lottie.json',
     },
     {
       id: 2,
       name: 'Silver Case',
       price: 250,
-      preview: 'https://via.placeholder.com/200',
+      preview: 'https://nft.fragment.com/gift/JoyfulBundle-505.lottie.json',
     },
     {
       id: 3,
       name: 'Gold Case',
       price: 500,
-      preview: 'https://via.placeholder.com/200',
+      preview: 'https://nft.fragment.com/gift/HeroicHelmet-505.lottie.json',
     },
   ];
 
