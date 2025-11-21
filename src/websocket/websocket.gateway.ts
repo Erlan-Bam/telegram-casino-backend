@@ -171,10 +171,27 @@ export class WebsocketGateway
   @SubscribeMessage('aviator:createOrGet')
   async handleCreateOrGetAviator(@ConnectedSocket() client: Socket) {
     try {
+      this.logger.log(`Client ${client.id} requesting aviator game`);
       const game = await this.aviatorService.createOrGetAviator();
+
+      // Convert Decimal fields to numbers for JSON serialization
+      const response = {
+        ...game,
+        multiplier: Number(game.multiplier),
+        bets: game.bets.map((bet) => ({
+          ...bet,
+          amount: Number(bet.amount),
+          cashedAt: bet.cashedAt ? Number(bet.cashedAt) : null,
+        })),
+      };
+
+      this.logger.log(
+        `Sending aviator game #${game.id} to client ${client.id}`,
+      );
+
       return {
         event: 'aviator:game',
-        data: game,
+        data: response,
       };
     } catch (error) {
       this.logger.error('Error in aviator:createOrGet', error);
@@ -192,9 +209,28 @@ export class WebsocketGateway
   async handleGetCurrentAviator(@ConnectedSocket() client: Socket) {
     try {
       const game = await this.aviatorService.getCurrentGame();
+
+      if (!game) {
+        return {
+          event: 'aviator:noGame',
+          data: null,
+        };
+      }
+
+      // Convert Decimal fields to numbers
+      const response = {
+        ...game,
+        multiplier: Number(game.multiplier),
+        bets: game.bets.map((bet) => ({
+          ...bet,
+          amount: Number(bet.amount),
+          cashedAt: bet.cashedAt ? Number(bet.cashedAt) : null,
+        })),
+      };
+
       return {
         event: 'aviator:game',
-        data: game,
+        data: response,
       };
     } catch (error) {
       this.logger.error('Error in aviator:getCurrent', error);
