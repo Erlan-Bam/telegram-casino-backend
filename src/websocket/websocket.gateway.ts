@@ -273,12 +273,16 @@ export class WebsocketGateway
 
           // Wait 3 seconds before creating new game
           setTimeout(async () => {
-            const newGame = await this.aviatorService.createOrGetAviator();
-            this.currentGameId = newGame.id;
-            this.logger.log(
-              `🆕 New game #${newGame.id} created with status ${newGame.status}`,
-            );
-            this.broadcastGameState(newGame);
+            try {
+              const newGame = await this.aviatorService.createOrGetAviator();
+              this.currentGameId = newGame.id;
+              this.logger.log(
+                `🆕 New game #${newGame.id} created with status ${newGame.status}`,
+              );
+              this.broadcastGameState(newGame);
+            } catch (error) {
+              this.logger.error('Error creating new game after crash:', error);
+            }
           }, 3000);
         }
       }
@@ -305,70 +309,125 @@ export class WebsocketGateway
    * Broadcast current game state to all clients
    */
   private broadcastGameState(game: any) {
-    const response = {
-      ...game,
-      multiplier: Number(game.multiplier),
-      bets: game.bets.map((bet) => ({
-        ...bet,
-        amount: Number(bet.amount),
-        cashedAt: bet.cashedAt ? Number(bet.cashedAt) : null,
-      })),
-    };
+    try {
+      if (!game) {
+        this.logger.warn('Cannot broadcast game state: game is null/undefined');
+        return;
+      }
 
-    this.server.emit('aviator:game', response);
+      const response = {
+        ...game,
+        multiplier: Number(game.multiplier),
+        bets: (game.bets || []).map((bet) => ({
+          ...bet,
+          amount: Number(bet.amount),
+          cashedAt: bet.cashedAt ? Number(bet.cashedAt) : null,
+        })),
+      };
+
+      this.server.emit('aviator:game', response);
+    } catch (error) {
+      this.logger.error(
+        `Error broadcasting game state: ${error.message}`,
+        error.stack,
+      );
+    }
   }
 
   /**
    * Send personalized win/lose events to each player after game crash
    */
   private async sendWinLoseEvents(game: any) {
-    const crashMultiplier = Number(game.multiplier);
+    try {
+      const crashMultiplier = Number(game.multiplier);
 
-    // Получаем всех игроков с их ставками
-    for (const bet of game.bets) {
-      const userId = bet.user.id;
-      const socketId = this.activeUsers.get(userId);
-
-      if (!socketId) {
-        this.logger.debug(
-          `User ${userId} (${bet.user.username}) not connected, skipping win/lose event`,
-        );
-        continue;
+      // Проверяем что у игры есть ставки
+      if (!game.bets || game.bets.length === 0) {
+        this.logger.debug('No bets in game, skipping win/lose events');
+        return;
       }
 
-      const socket = this.server.sockets.sockets.get(socketId);
-      if (!socket) continue;
-
-      const betAmount = Number(bet.amount);
-      const cashedAt = bet.cashedAt ? Number(bet.cashedAt) : null;
-
-      // Игрок выиграл если сделал cashout
-      if (cashedAt !== null) {
-        const winAmount = Math.floor(betAmount * cashedAt);
-        socket.emit('aviator:win', {
-          betId: bet.id,
-          betAmount: betAmount,
-          cashedAt: cashedAt,
-          winAmount: winAmount,
-          crashMultiplier: crashMultiplier,
-          timestamp: new Date().toISOString(),
-        });
-        this.logger.log(
-          `✅ Sent WIN event to ${bet.user.username}: won ${winAmount} (cashed at ${cashedAt}x)`,
-        );
+      // Проверяем что server.sockets.sockets существует
+      if (
+        !this.server ||
+        !this.server.sockets ||
+        !this.server.sockets.sockets
+      ) {
+        this.logger.error('Server sockets not available');
+        return;
       }
-      // Игрок проиграл если не сделал cashout
-      else {
-        socket.emit('aviator:lose', {
-          betId: bet.id,
-          betAmount: betAmount,
-          crashMultiplier: crashMultiplier,
-          timestamp: new Date().toISOString(),
-        });
-        this.logger.log(
-          `❌ Sent LOSE event to ${bet.user.username}: lost ${betAmount} (crashed at ${crashMultiplier}x)`,
-        );
+
+      // Получаем всех игроков с их ставками
+      for (const bet of game.bets) {
+        try {
+          const userId = bet.user?.id;
+          const username = bet.user?.username || 'Unknown';
+
+          if (!userId) {
+            this.logger.warn(`Bet #${bet.id} has no user ID, skipping`);
+            continue;
+          }
+
+          const socketId = this.activeUsers.get(userId);
+
+          if (!socketId) {
+            this.logger.debug(
+              `User ${userId} (${username}) not connected, skipping win/lose event`,
+            );
+            continue;
+          }
+
+          const socket = this.server.sockets.sockets.get(socketId);
+
+          if (!socket) {
+            this.logger.debug(
+              `Socket ${socketId} for user ${userId} not found, skipping`,
+            );
+            continue;
+          }
+
+          const betAmount = Number(bet.amount);
+          const cashedAt = bet.cashedAt ? Number(bet.cashedAt) : null;
+
+          // Игрок выиграл если сделал cashout
+          if (cashedAt !== null) {
+            const winAmount = Math.floor(betAmount * cashedAt);
+            socket.emit('aviator:win', {
+              betId: bet.id,
+              betAmount: betAmount,
+              cashedAt: cashedAt,
+              winAmount: winAmount,
+              crashMultiplier: crashMultiplier,
+              timestamp: new Date().toISOString(),
+            });
+            this.logger.log(
+              `✅ Sent WIN event to ${username}: won ${winAmount} (cashed at ${cashedAt}x)`,
+            );
+          }
+          // Игрок проиграл если не сделал cashout
+          else {
+            socket.emit('aviator:lose', {
+              betId: bet.id,
+              betAmount: betAmount,
+              crashMultiplier: crashMultiplier,
+              timestamp: new Date().toISOString(),
+            });
+            this.logger.log(
+              `❌ Sent LOSE event to ${username}: lost ${betAmount} (crashed at ${crashMultiplier}x)`,
+            );
+          }
+        } catch (betError) {
+          this.logger.error(
+            `Error sending win/lose event for bet #${bet.id}: ${betError.message}`,
+            betError.stack,
+          );
+        }
       }
+    } catch (error) {
+      this.logger.error(
+        `Error in sendWinLoseEvents: ${error.message}`,
+        error.stack,
+      );
     }
   }
 
@@ -392,11 +451,21 @@ export class WebsocketGateway
   /**
    * Broadcast crash history to all clients
    */
+  /**
+   * Broadcast crash history to all clients
+   */
   private broadcastCrashHistory() {
-    this.server.emit('aviator:crashHistory', {
-      history: this.crashHistory,
-      timestamp: new Date().toISOString(),
-    });
+    try {
+      this.server.emit('aviator:crashHistory', {
+        history: this.crashHistory,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.logger.error(
+        `Error broadcasting crash history: ${error.message}`,
+        error.stack,
+      );
+    }
   }
 
   /**
