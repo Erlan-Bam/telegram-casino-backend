@@ -910,4 +910,45 @@ export class AviatorService implements OnModuleInit {
       throw new HttpException('Failed to cash out gift', 500);
     }
   }
+
+  /**
+   * Get game history (last N finished games)
+   */
+  async getGameHistory(limit: number = 20) {
+    try {
+      const games = await this.prisma.aviator.findMany({
+        where: {
+          status: AviatorStatus.FINISHED,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: limit,
+        select: {
+          id: true,
+          multiplier: true,
+          clientSeed: true,
+          nonce: true,
+          status: true,
+          startsAt: true,
+          createdAt: true,
+          updatedAt: true,
+          _count: {
+            select: {
+              bets: true,
+            },
+          },
+        },
+      });
+
+      return games.map((game) => ({
+        ...game,
+        multiplier: Number(game.multiplier),
+        totalBets: game._count.bets,
+      }));
+    } catch (error) {
+      this.logger.error('Failed to get game history', error);
+      throw new HttpException('Failed to get game history', 500);
+    }
+  }
 }

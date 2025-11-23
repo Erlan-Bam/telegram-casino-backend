@@ -928,6 +928,48 @@ export class WebsocketGateway
     }
   }
 
+  @UseGuards(WsJwtGuard)
+  @SubscribeMessage('aviator:getHistory')
+  async handleGetHistory(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { limit?: number },
+  ) {
+    this.logger.log(
+      `🎮 HANDLER START: aviator:getHistory from client ${client.id}, userId: ${client.data.userId}`,
+    );
+    try {
+      const limit =
+        data?.limit && data.limit > 0 && data.limit <= 100 ? data.limit : 20;
+
+      this.logger.log(
+        `Client ${client.id} requesting game history (limit: ${limit})`,
+      );
+
+      const history = await this.aviatorService.getGameHistory(limit);
+
+      this.logger.log(
+        `Sending ${history.length} games history to client ${client.id}`,
+      );
+
+      return {
+        event: 'aviator:history',
+        data: {
+          games: history,
+          count: history.length,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    } catch (error) {
+      this.logger.error('Error in aviator:getHistory', error);
+      return {
+        event: 'error',
+        data: {
+          message: error.message || 'Failed to get game history',
+        },
+      };
+    }
+  }
+
   // Helper method to get active users count
   getActiveUsersCount(): number {
     return this.activeUsers.size;
