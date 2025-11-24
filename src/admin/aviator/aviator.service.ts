@@ -253,7 +253,30 @@ export class AviatorService implements OnModuleInit {
         console.log(
           `✅ Found existing game #${existingGame.id} with status ${existingGame.status}`,
         );
-        return existingGame;
+
+        // Check if game is expired (should have finished by now)
+        const now = new Date();
+        const gameStartTime = new Date(existingGame.startsAt);
+        const expectedEndTime = new Date(gameStartTime.getTime() + 30000); // 5s wait + ~25s max flight
+
+        if (now > expectedEndTime) {
+          console.log(
+            `⏰ Game #${existingGame.id} is expired (started at ${gameStartTime.toISOString()}, expected end: ${expectedEndTime.toISOString()}). Finalizing...`,
+          );
+
+          // Finalize the old game
+          await this.prisma.aviator.update({
+            where: { id: existingGame.id },
+            data: { status: AviatorStatus.FINISHED },
+          });
+
+          console.log(`✅ Game #${existingGame.id} marked as FINISHED`);
+
+          // Create new game (fall through to creation logic below)
+        } else {
+          // Game is still valid, return it
+          return existingGame;
+        }
       }
 
       console.log('📝 No active/waiting game found, creating new one...');
