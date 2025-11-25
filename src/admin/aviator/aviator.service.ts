@@ -254,19 +254,92 @@ export class AviatorService implements OnModuleInit {
         console.log(
           `✅ Found existing game #${existingGame.id} with status ${existingGame.status}`,
         );
-        return existingGame;
+
+        const now = Date.now();
+        const gameStartTime = new Date(existingGame.startsAt).getTime();
+
+        // If WAITING but start time already passed -> either start it or finish if too old
+        if (existingGame.status === AviatorStatus.WAITING) {
+          const elapsed = now - gameStartTime;
+          // If it was supposed to start a while ago, consider it stale
+          if (elapsed > 15_000) {
+            // Stale waiting game -> finalize and create new
+            console.warn(
+              `⚠️ Stale WAITING game #${existingGame.id}, started at ${new Date(gameStartTime).toISOString()} (elapsed ${Math.floor(elapsed / 1000)}s). Marking FINISHED.`,
+            );
+            await this.prisma.aviator.update({
+              where: { id: existingGame.id },
+              data: { status: AviatorStatus.FINISHED },
+            });
+            // fall through to create new game
+          } else if (elapsed >= 0) {
+            // It should have started or is starting now -> start it
+            console.log(
+              `🚀 Starting delayed WAITING game #${existingGame.id} (elapsed ${Math.floor(elapsed / 1000)}s)`,
+            );
+            await this.startGame(existingGame.id);
+            // reload and return started game
+            const started = await this.prisma.aviator.findUnique({
+              where: { id: existingGame.id },
+              include: {
+                bets: {
+                  select: {
+                    id: true,
+                    amount: true,
+                    cashedAt: true,
+                    createdAt: true,
+                    user: {
+                      select: { id: true, username: true, telegramId: true },
+                    },
+                  },
+                },
+              },
+            });
+            return started;
+          } else {
+            // startsAt in the future (shouldn't happen) - return it
+            return existingGame;
+          }
+        }
+
+        // If ACTIVE but it's long past expected end -> finalize
+        if (existingGame.status === AviatorStatus.ACTIVE) {
+          const expectedEnd = gameStartTime + 30_000; // 30s max flight
+          if (now > expectedEnd) {
+            console.warn(
+              `⚠️ ACTIVE game #${existingGame.id} is stale (started at ${new Date(gameStartTime).toISOString()}). Marking FINISHED.`,
+            );
+            await this.prisma.aviator.update({
+              where: { id: existingGame.id },
+              data: { status: AviatorStatus.FINISHED },
+            });
+            // fall through to create new game
+          } else {
+            return existingGame;
+          }
+        }
       }
 
+      // No active/waiting game -> create new one
+      return await this.createNewGame();
+    } catch (error) {
+      console.error('❌ Error in createOrGetAviator:', error);
+      this.logger.error('Failed to create or get aviator game', error);
+      throw new HttpException('Failed to create or get aviator game', 500);
+    }
+  }
+
+  /**
+   * Create a new game and schedule its auto-start
+   */
+  private async createNewGame() {
+    try {
       console.log('📝 No active/waiting game found, creating new one...');
 
       // Get the latest nonce from database
       const latestGame = await this.prisma.aviator.findFirst({
-        orderBy: {
-          nonce: 'desc',
-        },
-        select: {
-          nonce: true,
-        },
+        orderBy: { nonce: 'desc' },
+        select: { nonce: true },
       });
 
       const nonce = latestGame ? latestGame.nonce + 1 : 1;
@@ -284,8 +357,8 @@ export class AviatorService implements OnModuleInit {
       );
       console.log(`🎯 Calculated multiplier: ${multiplier}x`);
 
-      // Create new game with status WAITING and startsAt = now + 5 seconds
-      const startsAt = new Date(Date.now() + 5000); // 5 seconds waiting time
+      // Create new game with status WAITING and startsAt = now + 10 seconds
+      const startsAt = new Date(Date.now() + 10_000);
 
       const newGame = await this.prisma.aviator.create({
         data: {
@@ -293,7 +366,7 @@ export class AviatorService implements OnModuleInit {
           multiplier,
           clientSeed,
           nonce,
-          status: AviatorStatus.WAITING, // Start in WAITING status
+          status: AviatorStatus.WAITING,
         },
         include: {
           bets: {
@@ -302,31 +375,105 @@ export class AviatorService implements OnModuleInit {
               amount: true,
               cashedAt: true,
               createdAt: true,
-              user: {
-                select: {
-                  id: true,
-                  username: true,
-                  telegramId: true,
-                },
-              },
+              user: { select: { id: true, username: true, telegramId: true } },
             },
           },
         },
       });
 
       console.log(
-        `✅ Created new aviator game #${newGame.id} with WAITING status`,
+        `✅ Created new aviator game #${newGame.id} with WAITING status (startsAt: ${startsAt.toISOString()})`,
       );
       this.logger.log(
         `Created new aviator game #${newGame.id} with multiplier ${multiplier}x (nonce: ${nonce}, clientSeed: ${clientSeed}), starts at ${startsAt.toISOString()}`,
       );
 
+      // Schedule auto-start
+      setTimeout(() => {
+        console.log(`⏰ Auto-starting game #${newGame.id}`);
+        // fire-and-forget
+        this.startGame(newGame.id).catch((err) =>
+          this.logger.error('Failed to auto-start game', err),
+        );
+      }, 10_000);
+
       return newGame;
     } catch (error) {
-      console.error('❌ Error in createOrGetAviator:', error);
-      this.logger.error('Failed to create or get aviator game', error);
-      throw new HttpException('Failed to create or get aviator game', 500);
+      console.error('❌ Error in createNewGame:', error);
+      throw error;
     }
+  }
+
+  /**
+   * Start a WAITING game (set to ACTIVE) and schedule crash
+   */
+  async startGame(gameId: number) {
+    try {
+      this.logger.log(`🚀 Starting game #${gameId}`);
+      const game = await this.prisma.aviator.update({
+        where: { id: gameId },
+        data: { status: AviatorStatus.ACTIVE, startsAt: new Date() },
+        include: {
+          bets: {
+            select: {
+              id: true,
+              amount: true,
+              cashedAt: true,
+              createdAt: true,
+              user: { select: { id: true, username: true } },
+            },
+          },
+        },
+      });
+
+      // Schedule crash after a reasonable time window (use 25s as default)
+      const crashDelay = this.calculateCrashDelay(Number(game.multiplier));
+      this.logger.log(
+        `✅ Game #${game.id} started; scheduling crash in ${crashDelay}ms`,
+      );
+
+      setTimeout(() => {
+        this.logger.log(`💥 Crashing game #${gameId}`);
+        this.crashGame(gameId).catch((err) =>
+          this.logger.error('Failed to crash game', err),
+        );
+      }, crashDelay);
+
+      return game;
+    } catch (error) {
+      this.logger.error('Failed to start game', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Crash (finish) a game: set status to FINISHED
+   */
+  async crashGame(gameId: number) {
+    try {
+      this.logger.log(`💥 Finalizing (crash) game #${gameId}`);
+      const finished = await this.prisma.aviator.update({
+        where: { id: gameId },
+        data: { status: AviatorStatus.FINISHED },
+      });
+
+      this.logger.log(`✅ Game #${gameId} marked as FINISHED`);
+      return finished;
+    } catch (error) {
+      this.logger.error('Failed to crash/finish game', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Simple heuristic to convert multiplier into crash delay (ms).
+   * Keeps games within a reasonable time window.
+   */
+  private calculateCrashDelay(multiplier: number): number {
+    // base flight time: 8s, add up to 20s depending on multiplier (capped)
+    const base = 8_000;
+    const extra = Math.min(20_000, Math.round((multiplier / 10) * 3_000));
+    return base + extra;
   }
 
   /**
