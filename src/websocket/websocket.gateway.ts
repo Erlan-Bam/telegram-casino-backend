@@ -623,23 +623,39 @@ export class WebsocketGateway
             );
 
             // Send to specific user if connected
+            // Try TWO methods: room-based (primary) and direct socket (fallback)
+            this.logger.log(
+              `📤 [Gateway] Attempting to send win event via room: ${userId}`,
+            );
+
+            // Method 1: Send via personal room (RECOMMENDED - more reliable)
+            this.server.to(userId).emit('aviator:win', winEvent);
+            this.logger.log(
+              `✅ [Gateway] WIN event sent via room to ${username}`,
+            );
+
+            // Method 2: Also try direct socket send as fallback
             if (socketId) {
               const socket = this.getSocketById(socketId);
               if (socket) {
                 socket.emit('aviator:win', winEvent);
                 this.logger.log(
-                  `✅ [Gateway] WIN event SENT to ${username} (won ${winAmount} at ${cashedAt}x)`,
+                  `✅ [Gateway] WIN event also sent via direct socket to ${username}`,
                 );
               } else {
                 this.logger.warn(
-                  `⚠️ [Gateway] Socket ${socketId} not found in server.sockets for user ${username}`,
+                  `⚠️ [Gateway] Socket ${socketId} not found for fallback send to ${username}`,
                 );
               }
             } else {
               this.logger.warn(
-                `⚠️ [Gateway] User ${username} (${userId}) not in activeUsers map (${this.activeUsers.size} users connected)`,
+                `⚠️ [Gateway] User ${username} not in activeUsers map, relied on room-based send`,
               );
             }
+
+            this.logger.log(
+              `✅ [Gateway] WIN event processing completed for ${username} (won ${winAmount} at ${cashedAt}x)`,
+            );
           }
           // Player lost if they didn't cash out
           else {
@@ -673,39 +689,39 @@ export class WebsocketGateway
             }
 
             // Send to specific user if connected
+            // Try TWO methods: room-based (primary) and direct socket (fallback)
+            this.logger.log(
+              `� [Gateway] Attempting to send lose event via room: ${userId}`,
+            );
+
+            // Method 1: Send via personal room (RECOMMENDED - more reliable)
+            this.server.to(userId).emit('aviator:lose', loseEvent);
+            this.logger.log(
+              `✅ [Gateway] LOSE event sent via room to ${username}`,
+            );
+
+            // Method 2: Also try direct socket send as fallback
             if (socketId) {
-              this.logger.log(
-                `🔍 [Gateway] Found socketId ${socketId} for user ${username}, getting socket...`,
-              );
-
               const socket = this.getSocketById(socketId);
-
               if (socket) {
-                this.logger.log(
-                  `🎯 [Gateway] Socket found! Emitting aviator:lose event...`,
-                );
-
                 socket.emit('aviator:lose', loseEvent);
-
                 this.logger.log(
-                  `✅ [Gateway] LOSE event EMITTED successfully to ${username} (lost ${betAmount} at ${crashMultiplier}x)`,
+                  `✅ [Gateway] LOSE event also sent via direct socket to ${username}`,
                 );
               } else {
-                this.logger.error(
-                  `❌ [Gateway] CRITICAL: Socket ${socketId} not found in server.sockets.sockets for user ${username}!`,
-                );
-                this.logger.error(
-                  `   - server.sockets.sockets.size: ${this.server?.sockets?.sockets?.size || 'undefined'}`,
-                );
-                this.logger.error(
-                  `   - Socket IDs: ${Array.from(this.server?.sockets?.sockets?.keys() || []).join(', ')}`,
+                this.logger.warn(
+                  `⚠️ [Gateway] Socket ${socketId} not found for fallback send to ${username}`,
                 );
               }
             } else {
-              this.logger.error(
-                `❌ [Gateway] CRITICAL: Cannot send lose event - User ${username} (${userId}) not connected (no socketId)`,
+              this.logger.warn(
+                `⚠️ [Gateway] User ${username} not in activeUsers map, relied on room-based send`,
               );
             }
+
+            this.logger.log(
+              `✅ [Gateway] LOSE event processing completed for ${username} (lost ${betAmount} at ${crashMultiplier}x)`,
+            );
           }
         } catch (betError) {
           this.logger.error(
@@ -927,6 +943,28 @@ export class WebsocketGateway
       client.data.userId = user.id;
       client.data.username = user.username;
       client.data.role = user.role;
+
+      // 🚨 CRITICAL: Join user to personal room for targeted events (win/lose)
+      client.join(user.id);
+      this.logger.log(
+        `🚪 [Gateway] User ${user.username} joined personal room: ${user.id}`,
+      );
+
+      // Join current game room if exists
+      try {
+        const currentGame = await this.aviatorService.getCurrentGame();
+        if (currentGame) {
+          const gameRoom = `aviator-game-${currentGame.id}`;
+          client.join(gameRoom);
+          this.logger.log(
+            `🚪 [Gateway] User ${user.username} joined game room: ${gameRoom}`,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Could not join game room for user ${user.username}: ${error.message}`,
+        );
+      }
 
       // Add to active users (replace any existing connection)
       this.activeUsers.set(user.id, client.id);
@@ -1291,7 +1329,7 @@ export class WebsocketGateway
         `User ${userId} cashed out bet #${data.betId} successfully. Win: ${result.winAmount}. Broadcasting to all clients.`,
       );
 
-      // Broadcast cash out to all clients
+      // Broadcast cash out to all clients (public event showing someone cashed out)
       this.server.emit('aviator:cashOut', {
         betId: result.bet.id,
         aviatorId: result.bet.aviatorId,
@@ -1302,6 +1340,54 @@ export class WebsocketGateway
         winAmount: result.winAmount,
         timestamp: result.bet.updatedAt,
       });
+
+      this.logger.log(
+        `📡 [Gateway] Broadcasted aviator:cashOut event to all clients`,
+      );
+
+      // Send personal win event to the player
+      const winEvent = {
+        betId: result.bet.id,
+        betAmount: result.bet.amount,
+        cashedAt: result.multiplier,
+        winAmount: result.winAmount,
+        crashMultiplier: null, // Will be set when game crashes
+        timestamp: new Date().toISOString(),
+      };
+
+      this.logger.log(
+        `📤 [Gateway] EMITTING aviator:win after cashout to user ${result.bet.user.username}: ${JSON.stringify(winEvent)}`,
+      );
+
+      // Method 1: Send via personal room (RECOMMENDED - more reliable)
+      this.server.to(userId).emit('aviator:win', winEvent);
+      this.logger.log(
+        `✅ [Gateway] WIN event sent via room to ${result.bet.user.username}`,
+      );
+
+      // Method 2: Also try direct socket send as fallback
+      const socketId = this.activeUsers.get(userId);
+      if (socketId) {
+        const socket = this.getSocketById(socketId);
+        if (socket) {
+          socket.emit('aviator:win', winEvent);
+          this.logger.log(
+            `✅ [Gateway] WIN event also sent via direct socket to ${result.bet.user.username}`,
+          );
+        } else {
+          this.logger.warn(
+            `⚠️ [Gateway] Socket ${socketId} not found for fallback send after cashout`,
+          );
+        }
+      } else {
+        this.logger.warn(
+          `⚠️ [Gateway] User ${userId} not in activeUsers map after cashout, relied on room-based send`,
+        );
+      }
+
+      this.logger.log(
+        `✅ [Gateway] WIN event after cashout completed for ${result.bet.user.username} (won ${result.winAmount} at ${result.multiplier}x)`,
+      );
 
       return {
         event: 'aviator:cashedOut',
