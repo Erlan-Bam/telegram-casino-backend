@@ -593,7 +593,17 @@ export class WebsocketGateway
           const cashedAt = bet.cashedAt ? Number(bet.cashedAt) : null;
 
           this.logger.log(
-            `🎯 [Gateway] Processing bet #${bet.id} for user ${username} (${userId}), socketId: ${socketId || 'NOT CONNECTED'}`,
+            `🎯 [Gateway] Processing bet #${bet.id} for user ${username} (${userId})`,
+          );
+          this.logger.log(`   - Bet Amount: ${betAmount}`);
+          this.logger.log(
+            `   - Cashed At: ${cashedAt !== null ? `${cashedAt}x` : 'NULL (NOT CASHED OUT)'}`,
+          );
+          this.logger.log(
+            `   - Socket ID: ${socketId || 'NOT IN activeUsers MAP'}`,
+          );
+          this.logger.log(
+            `   - Active Users Map Size: ${this.activeUsers.size}`,
           );
 
           // Player won if they cashed out
@@ -622,17 +632,21 @@ export class WebsocketGateway
                 );
               } else {
                 this.logger.warn(
-                  `⚠️ [Gateway] Socket not found for user ${username}, cannot send win event`,
+                  `⚠️ [Gateway] Socket ${socketId} not found in server.sockets for user ${username}`,
                 );
               }
             } else {
               this.logger.warn(
-                `⚠️ [Gateway] User ${username} not connected, cannot send win event`,
+                `⚠️ [Gateway] User ${username} (${userId}) not in activeUsers map (${this.activeUsers.size} users connected)`,
               );
             }
           }
           // Player lost if they didn't cash out
           else {
+            this.logger.log(
+              `💔 [Gateway] Bet #${bet.id} is a LOSING BET (cashedAt is NULL)`,
+            );
+
             const loseEvent = {
               betId: bet.id,
               betAmount: betAmount,
@@ -641,25 +655,55 @@ export class WebsocketGateway
             };
 
             this.logger.log(
-              `📤 [Gateway] EMITTING aviator:lose to ${username}: ${JSON.stringify(loseEvent)}`,
+              `📤 [Gateway] PREPARING TO EMIT aviator:lose to ${username} (${userId})`,
             );
+            this.logger.log(`   - Lose Event: ${JSON.stringify(loseEvent)}`);
+
+            // Check if user is in activeUsers map
+            if (!socketId) {
+              this.logger.error(
+                `❌ [Gateway] CRITICAL: User ${username} (${userId}) NOT FOUND in activeUsers map!`,
+              );
+              this.logger.error(
+                `   - activeUsers map has ${this.activeUsers.size} entries`,
+              );
+              this.logger.error(
+                `   - User IDs in map: ${Array.from(this.activeUsers.keys()).join(', ')}`,
+              );
+            }
 
             // Send to specific user if connected
             if (socketId) {
+              this.logger.log(
+                `🔍 [Gateway] Found socketId ${socketId} for user ${username}, getting socket...`,
+              );
+
               const socket = this.getSocketById(socketId);
+
               if (socket) {
-                socket.emit('aviator:lose', loseEvent);
                 this.logger.log(
-                  `❌ [Gateway] LOSE event SENT to ${username} (lost ${betAmount} at ${crashMultiplier}x)`,
+                  `🎯 [Gateway] Socket found! Emitting aviator:lose event...`,
+                );
+
+                socket.emit('aviator:lose', loseEvent);
+
+                this.logger.log(
+                  `✅ [Gateway] LOSE event EMITTED successfully to ${username} (lost ${betAmount} at ${crashMultiplier}x)`,
                 );
               } else {
-                this.logger.warn(
-                  `⚠️ [Gateway] Socket not found for user ${username}, cannot send lose event`,
+                this.logger.error(
+                  `❌ [Gateway] CRITICAL: Socket ${socketId} not found in server.sockets.sockets for user ${username}!`,
+                );
+                this.logger.error(
+                  `   - server.sockets.sockets.size: ${this.server?.sockets?.sockets?.size || 'undefined'}`,
+                );
+                this.logger.error(
+                  `   - Socket IDs: ${Array.from(this.server?.sockets?.sockets?.keys() || []).join(', ')}`,
                 );
               }
             } else {
-              this.logger.warn(
-                `⚠️ [Gateway] User ${username} not connected, cannot send lose event`,
+              this.logger.error(
+                `❌ [Gateway] CRITICAL: Cannot send lose event - User ${username} (${userId}) not connected (no socketId)`,
               );
             }
           }
@@ -888,7 +932,13 @@ export class WebsocketGateway
       this.activeUsers.set(user.id, client.id);
 
       this.logger.log(
-        `User ${user.username} (${user.id}) connected with socket ${client.id}`,
+        `✅ User ${user.username} (${user.id}) connected with socket ${client.id}`,
+      );
+      this.logger.log(
+        `   - Added to activeUsers map (size: ${this.activeUsers.size})`,
+      );
+      this.logger.log(
+        `   - Active users: ${Array.from(this.activeUsers.keys()).slice(0, 5).join(', ')}...`,
       );
 
       // Emit active users count to all clients
@@ -1119,8 +1169,19 @@ export class WebsocketGateway
   ) {
     try {
       const userId = client.data.userId;
+      const username = client.data.username;
+
       this.logger.log(
-        `User ${userId} placing bet on aviator #${data.aviatorId} for ${data.amount}`,
+        `🎰 [BET] User ${username} (${userId}) placing bet on aviator #${data.aviatorId} for ${data.amount}`,
+      );
+
+      // Check if user is in activeUsers map
+      const socketId = this.activeUsers.get(userId);
+      this.logger.log(
+        `🔍 [BET] User ${username} activeUsers check: ${socketId ? `✅ Found (${socketId})` : '❌ NOT FOUND'}`,
+      );
+      this.logger.log(
+        `📊 [BET] Current activeUsers map size: ${this.activeUsers.size}`,
       );
 
       if (!data.aviatorId || !data.amount) {
@@ -1142,7 +1203,13 @@ export class WebsocketGateway
       );
 
       this.logger.log(
-        `Bet #${bet.id} placed successfully by user ${userId}. Broadcasting to all clients.`,
+        `✅ [BET] Bet #${bet.id} placed successfully by ${username} (${userId}). Broadcasting to all clients.`,
+      );
+
+      // Verify user is still in activeUsers after bet placement
+      const socketIdAfter = this.activeUsers.get(userId);
+      this.logger.log(
+        `🔍 [BET] User ${username} activeUsers check AFTER bet: ${socketIdAfter ? `✅ Found (${socketIdAfter})` : '❌ NOT FOUND'}`,
       );
 
       // Convert Decimal to number for JSON
