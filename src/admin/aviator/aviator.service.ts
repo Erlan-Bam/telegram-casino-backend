@@ -466,14 +466,15 @@ export class AviatorService implements OnModuleInit {
   }
 
   /**
-   * Simple heuristic to convert multiplier into crash delay (ms).
-   * Keeps games within a reasonable time window.
+   * Calculate crash delay based on multiplier
+   * SYNCHRONIZED WITH FRONTEND AND WEBSOCKET GATEWAY!
+   * Formula: (multiplier - 1.0) * 5000ms
+   * Example: 2.00x = 5000ms, 5.00x = 20000ms, 10.00x = 45000ms
    */
   private calculateCrashDelay(multiplier: number): number {
-    // base flight time: 8s, add up to 20s depending on multiplier (capped)
-    const base = 8_000;
-    const extra = Math.min(20_000, Math.round((multiplier / 10) * 3_000));
-    return base + extra;
+    // CRITICAL: This MUST match the frontend formula
+    // Frontend uses: const crashTimeMs = (crashMultiplier - 1.0) * 5000;
+    return Math.round((multiplier - 1.0) * 5000);
   }
 
   /**
@@ -782,8 +783,9 @@ export class AviatorService implements OnModuleInit {
         const serverMultiplier = 1.0 + (crashPoint - 1.0) * progress;
 
         // Check if client multiplier is reasonable (allow 10% deviation for network delay)
-        const deviation = Math.abs(currentMultiplier - serverMultiplier) / serverMultiplier;
-        
+        const deviation =
+          Math.abs(currentMultiplier - serverMultiplier) / serverMultiplier;
+
         if (deviation > 0.15) {
           this.logger.warn(
             `User ${userId} multiplier deviation: client=${currentMultiplier.toFixed(2)}, server=${serverMultiplier.toFixed(2)}, deviation=${(deviation * 100).toFixed(1)}%`,

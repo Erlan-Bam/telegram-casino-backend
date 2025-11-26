@@ -402,29 +402,76 @@ export class WebsocketGateway
         `✅ Game #${gameId} crashed at ${crashMultiplier}x. Creating new game in 3s...`,
       );
 
-      // Create new game after 3 seconds
+      // Create new game after 3 seconds with retry logic
       setTimeout(async () => {
-        try {
-          const newGame = await this.aviatorService.createOrGetAviator();
-          this.currentGameId = newGame.id;
-          this.logger.log(
-            `🆕 New game #${newGame.id} created with status ${newGame.status}`,
-          );
-          this.broadcastGameState(newGame);
+        let attempts = 0;
+        const maxAttempts = 3;
 
-          // Schedule auto-start for new game
-          const timeUntilStart =
-            new Date(newGame.startsAt).getTime() - Date.now();
-          if (timeUntilStart > 0) {
+        while (attempts < maxAttempts) {
+          try {
             this.logger.log(
-              `⏰ Scheduling game #${newGame.id} to start in ${Math.ceil(timeUntilStart / 1000)}s`,
+              `📝 Creating new game after crash (attempt ${attempts + 1}/${maxAttempts})...`,
             );
-            this.gameStartTimeout = setTimeout(() => {
-              this.startGame(newGame.id);
-            }, timeUntilStart);
+
+            const newGame = await this.aviatorService.createOrGetAviator();
+            this.currentGameId = newGame.id;
+
+            this.logger.log(
+              `🆕 New game #${newGame.id} created successfully with status ${newGame.status}`,
+            );
+
+            // Broadcast new game state
+            this.broadcastGameState(newGame);
+
+            // Schedule auto-start for new game
+            const timeUntilStart =
+              new Date(newGame.startsAt).getTime() - Date.now();
+            if (timeUntilStart > 0) {
+              this.logger.log(
+                `⏰ Scheduling game #${newGame.id} to start in ${Math.ceil(timeUntilStart / 1000)}s`,
+              );
+              this.gameStartTimeout = setTimeout(() => {
+                this.startGame(newGame.id).catch((err) =>
+                  this.logger.error('Failed to auto-start game', err),
+                );
+              }, timeUntilStart);
+            } else {
+              // If start time already passed, start immediately
+              this.logger.warn(
+                'Start time already passed, starting game immediately',
+              );
+              await this.startGame(newGame.id);
+            }
+
+            break; // Success - exit retry loop
+          } catch (error) {
+            attempts++;
+            this.logger.error(
+              `❌ Failed to create new game (attempt ${attempts}/${maxAttempts}):`,
+              error,
+            );
+
+            if (attempts >= maxAttempts) {
+              // CRITICAL ERROR - notify all clients
+              this.logger.error(
+                '🚨 CRITICAL: Failed to create new game after 3 attempts!',
+              );
+
+              // Broadcast error to all clients
+              this.server.emit('error', {
+                message: 'Failed to start new game. Please refresh the page.',
+                code: 'GAME_CREATION_FAILED',
+                timestamp: new Date().toISOString(),
+              });
+
+              // TODO: Send alert to monitoring/admin system
+              // await this.notifyAdmin('Critical: Game creation failed after 3 attempts');
+            } else {
+              // Wait 2 seconds before retry
+              this.logger.log(`⏳ Retrying in 2 seconds...`);
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+            }
           }
-        } catch (error) {
-          this.logger.error('Error creating new game after crash:', error);
         }
       }, 3000);
     } catch (error) {
