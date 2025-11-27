@@ -315,19 +315,22 @@ async function main() {
       id: 1,
       name: 'Bronze Case',
       price: 100,
-      preview: 'https://cdn.changes.tg/gifts/models/Loot%20Bag/png/Original.png',
+      preview:
+        'https://cdn.changes.tg/gifts/models/Loot%20Bag/png/Original.png',
     },
     {
       id: 2,
       name: 'Silver Case',
       price: 250,
-      preview: 'https://cdn.changes.tg/gifts/models/Joyful%20Bundle/png/Original.png',
+      preview:
+        'https://cdn.changes.tg/gifts/models/Joyful%20Bundle/png/Original.png',
     },
     {
       id: 3,
       name: 'Gold Case',
       price: 500,
-      preview: 'https://cdn.changes.tg/gifts/models/Heroic%20Helmet/png/Original.png',
+      preview:
+        'https://cdn.changes.tg/gifts/models/Heroic%20Helmet/png/Original.png',
     },
   ];
 

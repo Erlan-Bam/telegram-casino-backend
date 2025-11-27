@@ -29,7 +29,8 @@ import { UpgradeChancePublicDto } from './dto/upgrade-chance-public.dto';
 
 @ApiTags('Upgrade')
 @Controller('upgrade')
-export class UpgradeController {п
+export class UpgradeController {
+  п;
   constructor(private readonly upgradeService: UpgradeService) {}
 
   @Get('chances')
