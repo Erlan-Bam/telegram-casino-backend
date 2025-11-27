@@ -182,6 +182,30 @@ export class UserController {
     );
   }
 
+  @Post('inventory/sell/:itemId')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'Sell an inventory item' })
+  @ApiResponse({
+    status: 200,
+    description: 'Item sold successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        balance: { type: 'number', description: 'Updated user balance' },
+        amount: { type: 'number', description: 'Amount received from sale' },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Item not found' })
+  @ApiResponse({ status: 403, description: 'Not authorized to sell this item' })
+  async sellInventoryItem(
+    @User('id') userId: string,
+    @Param('itemId') itemId: string,
+  ) {
+    return this.userService.sellInventoryItem(userId, Number(itemId));
+  }
+
   @Get('inventory')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth('JWT')
@@ -235,29 +259,5 @@ export class UserController {
       page ? Number(page) : 1,
       limit ? Number(limit) : 50,
     );
-  }
-
-  @Post('inventory/sell/:itemId')
-  @UseGuards(AuthGuard('jwt'))
-  @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: 'Sell an inventory item' })
-  @ApiResponse({
-    status: 200,
-    description: 'Item sold successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        balance: { type: 'number', description: 'Updated user balance' },
-        amount: { type: 'number', description: 'Amount received from sale' },
-      },
-    },
-  })
-  @ApiResponse({ status: 404, description: 'Item not found' })
-  @ApiResponse({ status: 403, description: 'Not authorized to sell this item' })
-  async sellInventoryItem(
-    @User('id') userId: string,
-    @Param('itemId') itemId: string,
-  ) {
-    return this.userService.sellInventoryItem(userId, Number(itemId));
   }
 }
