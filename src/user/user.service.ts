@@ -422,4 +422,85 @@ export class UserService {
       throw new HttpException('Failed to get user inventory', 500);
     }
   }
+
+  /**
+   * Sell inventory item - user gets prize amount added to balance
+   */
+  async sellInventoryItem(
+    userId: string,
+    inventoryItemId: number,
+  ): Promise<{ balance: number; amount: number }> {
+    try {
+      // Check if user exists
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, balance: true },
+      });
+
+      if (!user) {
+        throw new HttpException('User not found', 404);
+      }
+
+      // Find inventory item and verify it belongs to the user
+      const inventoryItem = await this.prisma.inventoryItem.findUnique({
+        where: { id: inventoryItemId },
+        include: {
+          prize: {
+            select: {
+              amount: true,
+              name: true,
+            },
+          },
+        },
+      });
+
+      if (!inventoryItem) {
+        throw new HttpException('Inventory item not found', 404);
+      }
+
+      if (inventoryItem.userId !== userId) {
+        throw new HttpException('You do not own this inventory item', 403);
+      }
+
+      const sellAmount = inventoryItem.prize.amount;
+
+      // Delete inventory item and update user balance in a transaction
+      const updatedUser = await this.prisma.$transaction(async (tx) => {
+        // Delete the inventory item
+        await tx.inventoryItem.delete({
+          where: { id: inventoryItemId },
+        });
+
+        // Update user balance
+        const updated = await tx.user.update({
+          where: { id: userId },
+          data: {
+            balance: {
+              increment: sellAmount,
+            },
+          },
+          select: {
+            balance: true,
+          },
+        });
+
+        return updated;
+      });
+
+      this.logger.log(
+        `User ${userId} sold inventory item ${inventoryItemId} (${inventoryItem.prize.name}) for ${sellAmount} stars. New balance: ${updatedUser.balance}`,
+      );
+
+      return {
+        balance: updatedUser.balance.toNumber(),
+        amount: sellAmount,
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      this.logger.error('Failed to sell inventory item: ', error);
+      throw new HttpException('Failed to sell inventory item', 500);
+    }
+  }
 }
