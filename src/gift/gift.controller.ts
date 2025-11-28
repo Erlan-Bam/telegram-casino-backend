@@ -1,5 +1,18 @@
-import { Controller, Get, Post, Body, Query, UseGuards, HttpException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  UseGuards,
+  HttpException,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { GiftService } from '../shared/services/gift.service';
 import { TelegramUserbotService } from '../shared/services/telegram-userbot.service';
 import { UserGuard } from '../shared/guards/user.guard';
@@ -22,8 +35,11 @@ export class GiftController {
   @Get('my-gifts')
   @UseGuards(UserGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get current user\'s Telegram gifts' })
-  @ApiResponse({ status: 200, description: 'Returns user gifts with pagination' })
+  @ApiOperation({ summary: "Get current user's Telegram gifts" })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns user gifts with pagination',
+  })
   async getMyGifts(
     @User('telegramId') telegramId: string,
     @Query() paginationDto: PaginationDto,

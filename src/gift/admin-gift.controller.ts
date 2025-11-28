@@ -1,5 +1,18 @@
-import { Controller, Get, Post, Body, Query, UseGuards, HttpException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  UseGuards,
+  HttpException,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { GiftService } from '../shared/services/gift.service';
 import { TelegramUserbotService } from '../shared/services/telegram-userbot.service';
 import { AdminGuard } from '../shared/guards/admin.guard';
@@ -22,7 +35,10 @@ export class AdminGiftController {
 
   @Get('all')
   @ApiOperation({ summary: 'Get all Telegram gifts (admin only)' })
-  @ApiResponse({ status: 200, description: 'Returns all gifts with pagination' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns all gifts with pagination',
+  })
   async getAllGifts(@Query() paginationDto: PaginationDto) {
     try {
       const { page = 1, limit = 50 } = paginationDto;
@@ -52,7 +68,10 @@ export class AdminGiftController {
 
   @Post('convert-to-prize')
   @ApiOperation({ summary: 'Convert a Telegram gift to a prize (admin only)' })
-  @ApiResponse({ status: 201, description: 'Gift converted to prize successfully' })
+  @ApiResponse({
+    status: 201,
+    description: 'Gift converted to prize successfully',
+  })
   async convertToPrize(@Body() dto: ConvertGiftToPrizeDto) {
     try {
       const prize = await this.giftService.convertGiftToPrize(dto.giftId);
@@ -71,8 +90,13 @@ export class AdminGiftController {
   }
 
   @Post('convert-to-inventory')
-  @ApiOperation({ summary: 'Convert gift to inventory for specific user (admin only)' })
-  @ApiResponse({ status: 201, description: 'Gift converted to inventory successfully' })
+  @ApiOperation({
+    summary: 'Convert gift to inventory for specific user (admin only)',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Gift converted to inventory successfully',
+  })
   async convertToInventoryForUser(@Body() dto: ConvertGiftToInventoryDto) {
     try {
       const result = await this.giftService.convertGiftToInventoryItem(
@@ -94,7 +118,9 @@ export class AdminGiftController {
   }
 
   @Post('send-notification')
-  @ApiOperation({ summary: 'Send gift notification to user via Telegram (admin only)' })
+  @ApiOperation({
+    summary: 'Send gift notification to user via Telegram (admin only)',
+  })
   @ApiResponse({ status: 201, description: 'Notification sent successfully' })
   async sendGiftNotification(@Body() dto: SendGiftNotificationDto) {
     try {
