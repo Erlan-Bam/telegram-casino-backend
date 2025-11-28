@@ -17,6 +17,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../shared/services/prisma.service';
 import { AviatorService } from '../admin/aviator/aviator.service';
+import { CaseService } from '../case/case.service';
 import { WsJwtGuard } from './guards/ws-jwt.guard';
 
 @WebSocketGateway({
@@ -46,11 +47,14 @@ export class WebsocketGateway
   private gameCrashTimeout: NodeJS.Timeout | null = null; // Timeout for auto-crash
   private multiplierTickInterval: NodeJS.Timeout | null = null; // Interval for multiplier ticks
   private currentGameStartTime: number | null = null; // Game start timestamp for multiplier calculation
+  private initialPrizes: any[] = []; // Initial fake prizes for animation
+  private prizeGenerationInterval: NodeJS.Timeout | null = null; // Interval for fake prize generation
 
   constructor(
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
     private readonly aviatorService: AviatorService,
+    private readonly caseService: CaseService,
   ) {}
 
   /**
@@ -62,8 +66,15 @@ export class WebsocketGateway
     // Set gateway reference in aviator service for cron jobs
     this.aviatorService.setWebSocketGateway(this);
 
+    // Set gateway reference in case service for prize broadcasts
+    this.caseService.setWebSocketGateway(this);
+
     await this.startGameLoop();
     this.logger.log('✅ Aviator game loop initialized successfully');
+
+    // Initialize fake prize generation for case openings
+    await this.startPrizeGeneration();
+    this.logger.log('✅ Prize generation initialized successfully');
   }
 
   /**
@@ -79,6 +90,10 @@ export class WebsocketGateway
     }
     if (this.gameCrashTimeout) {
       clearTimeout(this.gameCrashTimeout);
+    }
+    if (this.prizeGenerationInterval) {
+      clearInterval(this.prizeGenerationInterval);
+      this.logger.log('🛑 Prize generation stopped');
     }
   }
 
@@ -165,6 +180,131 @@ export class WebsocketGateway
     } catch (error) {
       this.logger.error('Failed to load crash history', error);
       this.crashHistory = [];
+    }
+  }
+
+  /**
+   * Start generating fake prizes every 3-8 seconds
+   */
+  private async startPrizeGeneration() {
+    try {
+      // Generate initial batch of fake prizes (last 20)
+      await this.generateInitialPrizes();
+
+      // Start periodic fake prize generation (every 3-8 seconds)
+      const generateFakePrize = async () => {
+        try {
+          const fakePrize = await this.generateFakePrize();
+          this.broadcastPrizeWon(fakePrize);
+
+          // Schedule next fake prize (random interval 3-8 seconds)
+          const nextInterval = 3000 + Math.random() * 5000;
+          setTimeout(generateFakePrize, nextInterval);
+        } catch (error) {
+          this.logger.error('Failed to generate fake prize', error);
+          // Retry after 5 seconds
+          setTimeout(generateFakePrize, 5000);
+        }
+      };
+
+      // Start first fake prize generation
+      const firstInterval = 3000 + Math.random() * 5000;
+      setTimeout(generateFakePrize, firstInterval);
+
+      this.logger.log('✅ Started fake prize generation');
+    } catch (error) {
+      this.logger.error('Failed to start prize generation', error);
+    }
+  }
+
+  /**
+   * Generate initial batch of fake prizes (last 20)
+   */
+  private async generateInitialPrizes() {
+    try {
+      const prizes = [];
+      for (let i = 0; i < 20; i++) {
+        prizes.push(await this.generateFakePrize());
+      }
+      this.initialPrizes = prizes;
+      this.logger.log(`📊 Generated ${prizes.length} initial fake prizes`);
+    } catch (error) {
+      this.logger.error('Failed to generate initial prizes', error);
+      this.initialPrizes = [];
+    }
+  }
+
+  /**
+   * Generate a single fake prize
+   */
+  private async generateFakePrize() {
+    try {
+      // Get random case
+      const cases = await this.prisma.case.findMany({
+        select: { id: true, name: true },
+      });
+
+      if (!cases || cases.length === 0) {
+        throw new Error('No cases found');
+      }
+
+      const randomCase = cases[Math.floor(Math.random() * cases.length)];
+
+      // Get random prize from that case
+      const caseItems = await this.prisma.caseItem.findMany({
+        where: { caseId: randomCase.id },
+        include: { prize: true },
+      });
+
+      if (!caseItems || caseItems.length === 0) {
+        throw new Error('No items found in case');
+      }
+
+      const randomItem =
+        caseItems[Math.floor(Math.random() * caseItems.length)];
+
+      // Get random username (fake)
+      const fakeUsernames = [
+        'Player1',
+        'Lucky777',
+        'Winner',
+        'ProGamer',
+        'CasinoKing',
+        'MegaWin',
+        'JackpotHunter',
+        'SpinMaster',
+        'FortuneSeeker',
+        'GoldRush',
+        'DiamondHands',
+        'RocketMan',
+        'MoonShot',
+        'BigWinner',
+        'ChampionX',
+      ];
+      const randomUsername =
+        fakeUsernames[Math.floor(Math.random() * fakeUsernames.length)];
+
+      return {
+        username: randomUsername,
+        caseName: randomCase.name,
+        prizeName: randomItem.prize.name,
+        prizeAmount: randomItem.prize.amount,
+        prizeUrl: randomItem.prize.url,
+        timestamp: new Date().toISOString(),
+        isFake: true,
+      };
+    } catch (error) {
+      this.logger.error('Failed to generate fake prize', error);
+      // Return a fallback fake prize
+      return {
+        username: 'Player1',
+        caseName: 'Mystery Box',
+        prizeName: 'Coins',
+        prizeAmount: 100,
+        prizeUrl: 'https://nft.fragment.com/gift/PetSnake-151667.lottie.json',
+        timestamp: new Date().toISOString(),
+        isFake: true,
+      };
     }
   }
 
@@ -1027,6 +1167,12 @@ export class WebsocketGateway
         timestamp: new Date().toISOString(),
       });
 
+      // Send initial prizes to new client
+      client.emit('case:initialPrizes', {
+        prizes: this.initialPrizes,
+        timestamp: new Date().toISOString(),
+      });
+
       // Add catch-all event listener to log all incoming events
       client.onAny((eventName, ...args) => {
         this.logger.log(
@@ -1729,6 +1875,37 @@ export class WebsocketGateway
     } catch (error) {
       this.logger.warn(`Failed to get socket ${socketId}:`, error);
       return undefined;
+    }
+  }
+
+  /**
+   * Broadcast a prize won event to all connected clients
+   * Called by CaseService when a real prize is won
+   */
+  broadcastPrizeWon(prizeData: {
+    username: string;
+    caseName: string;
+    prizeName: string;
+    prizeAmount: number;
+    prizeUrl: string;
+    timestamp: string;
+    isFake?: boolean;
+  }) {
+    try {
+      // Add to initial prizes history (keep last 20)
+      this.initialPrizes.unshift(prizeData);
+      if (this.initialPrizes.length > 20) {
+        this.initialPrizes = this.initialPrizes.slice(0, 20);
+      }
+
+      // Broadcast to all clients
+      this.server.emit('case:prizeWon', prizeData);
+
+      this.logger.log(
+        `📡 Broadcasted prize won: ${prizeData.username} won ${prizeData.prizeName} from ${prizeData.caseName}`,
+      );
+    } catch (error) {
+      this.logger.error('Failed to broadcast prize won', error);
     }
   }
 

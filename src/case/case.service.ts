@@ -1,4 +1,4 @@
-import { Injectable, Logger, HttpException } from '@nestjs/common';
+import { Injectable, Logger, HttpException, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../shared/services/prisma.service';
 import { GetCasesDto, CaseSortBy } from './dto/get-cases.dto';
 import { GetCasesCursorDto } from './dto/get-cases-cursor.dto';
@@ -12,8 +12,17 @@ export class CaseService {
   private cacheLastUpdated: Date | null = null;
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
   private readonly FREE_CASE_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+  private websocketGateway: any; // Will be set by WebsocketGateway
 
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Set WebSocket gateway reference (called by WebsocketGateway)
+   */
+  setWebSocketGateway(gateway: any) {
+    this.websocketGateway = gateway;
+    this.logger.log('✅ WebSocket gateway reference set');
+  }
 
   /**
    * Refresh cache every 5 minutes
@@ -461,7 +470,7 @@ export class CaseService {
         // 4. Fetch user and check balance (if paid case)
         const user = await tx.user.findUnique({
           where: { id: userId },
-          select: { id: true, balance: true, isBanned: true },
+          select: { id: true, balance: true, isBanned: true, username: true },
         });
 
         if (!user) {
@@ -527,11 +536,28 @@ export class CaseService {
           prizes: wonPrizes,
           inventoryCount: inventoryResult.count,
           remainingBalance,
+          caseName: caseData.name,
+          username: user.username,
         };
       });
 
       // Invalidate cache if it was a mutation
       this.cacheLastUpdated = null;
+
+      // Broadcast prize wins via WebSocket (for each prize won)
+      if (this.websocketGateway) {
+        for (const prize of result.prizes) {
+          this.websocketGateway.broadcastPrizeWon({
+            username: result.username,
+            caseName: result.caseName,
+            prizeName: prize.name,
+            prizeAmount: prize.amount,
+            prizeUrl: prize.url,
+            timestamp: new Date().toISOString(),
+            isFake: false,
+          });
+        }
+      }
 
       // Return formatted response
       return {

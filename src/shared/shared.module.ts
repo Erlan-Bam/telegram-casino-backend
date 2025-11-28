@@ -39,7 +39,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     JwtModule,
     ReferralService,
     GiftService,
-    TelegramUserbotService,
+    // TelegramUserbotService,
   ],
 })
 export class SharedModule {}
